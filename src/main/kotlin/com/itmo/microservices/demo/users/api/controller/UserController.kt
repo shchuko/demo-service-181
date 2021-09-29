@@ -26,6 +26,18 @@ class UserController(private val userService: UserService) {
     )
     fun register(@RequestBody request: RegistrationRequest) = userService.registerUser(request)
 
+    @GetMapping("/dummy")
+    @Operation(
+        summary = "dummy",
+        responses = [
+            ApiResponse(description = "OK", responseCode = "200"),
+            ApiResponse(description = "Not a problem, bro", responseCode = "404")
+        ]
+    )
+    fun getTestInfo() {
+
+    }
+
     @GetMapping("/me")
     @Operation(
         summary = "Get current user info",
@@ -36,7 +48,7 @@ class UserController(private val userService: UserService) {
         security = [SecurityRequirement(name = "bearerAuth")]
     )
     fun getAccountData(@Parameter(hidden = true) @AuthenticationPrincipal user: UserDetails): AppUserModel =
-            userService.getAccountData(user)
+        userService.getAccountData(user)
 
     @DeleteMapping("/me")
     @Operation(
@@ -48,5 +60,5 @@ class UserController(private val userService: UserService) {
         security = [SecurityRequirement(name = "bearerAuth")]
     )
     fun deleteCurrentUser(@Parameter(hidden = true) @AuthenticationPrincipal user: UserDetails) =
-            userService.deleteUser(user)
+        userService.deleteUser(user)
 }
