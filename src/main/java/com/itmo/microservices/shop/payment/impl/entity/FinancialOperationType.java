@@ -12,6 +12,7 @@ import org.hibernate.Hibernate;
 @Entity
 @Getter
 @Setter
+@ToString
 @RequiredArgsConstructor
 public class FinancialOperationType {
 

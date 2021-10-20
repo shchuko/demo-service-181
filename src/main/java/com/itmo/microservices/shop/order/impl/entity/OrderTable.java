@@ -19,11 +19,11 @@ import org.hibernate.Hibernate;
 @Setter
 @ToString
 @RequiredArgsConstructor
-public class Order {
+public class OrderTable {
 
   @Id
-
   private UUID uuid;
+
   private Long timeCreated;
   private Integer deliveryDuration;
   private String username;
@@ -43,7 +43,7 @@ public class Order {
     if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
       return false;
     }
-    Order order = (Order) o;
+    OrderTable order = (OrderTable) o;
     return uuid != null && Objects.equals(uuid, order.uuid);
   }
 

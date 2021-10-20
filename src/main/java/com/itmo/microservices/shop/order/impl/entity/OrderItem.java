@@ -22,7 +22,7 @@ public class OrderItem {
   private UUID itemId;
 
   @ManyToOne
-  private Order order;
+  private OrderTable order;
   private Integer amount;
 
   @Override
