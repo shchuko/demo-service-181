@@ -22,6 +22,7 @@ import org.hibernate.Hibernate;
 public class Order {
 
   @Id
+
   private UUID uuid;
   private Long timeCreated;
   private Integer deliveryDuration;
