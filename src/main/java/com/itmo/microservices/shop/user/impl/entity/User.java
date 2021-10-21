@@ -30,11 +30,11 @@ public class User {
       return false;
     }
     User user = (User) o;
-    return username != null && Objects.equals(username, user.username);
+    return username != null && Objects.equals(username, user.username) && Objects.equals(isAdmin, user.isAdmin);
   }
 
   @Override
   public int hashCode() {
-    return 0;
+    return username.hashCode() + passwordHash.hashCode() + isAdmin.hashCode();
   }
 }

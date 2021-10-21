@@ -43,12 +43,15 @@ public class OrderTable {
     if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
       return false;
     }
-    OrderTable order = (OrderTable) o;
-    return uuid != null && Objects.equals(uuid, order.uuid);
+    OrderTable that = (OrderTable) o;
+    return Objects.equals(uuid, that.uuid) && Objects.equals(timeCreated, that.timeCreated) &&
+        Objects.equals(orderStatus, that.orderStatus) && Objects.equals(deliveryDuration,
+        that.deliveryDuration) && Objects.equals(username, that.username) && Objects.equals(items, that.items);
   }
 
   @Override
   public int hashCode() {
-    return 0;
+    return uuid.hashCode() * timeCreated.hashCode() * deliveryDuration.hashCode()
+        * username.hashCode() * orderStatus.hashCode() * items.hashCode();
   }
 }

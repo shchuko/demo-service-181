@@ -29,11 +29,11 @@ public class PaymentStatus {
       return false;
     }
     PaymentStatus that = (PaymentStatus) o;
-    return id != null && Objects.equals(id, that.id);
+    return id != null && Objects.equals(id, that.id) && Objects.equals(name, that.name);
   }
 
   @Override
   public int hashCode() {
-    return 0;
+    return id.hashCode() * name.hashCode();
   }
 }

@@ -41,11 +41,16 @@ public class PaymentLogRecord {
       return false;
     }
     PaymentLogRecord that = (PaymentLogRecord) o;
-    return id != null && Objects.equals(id, that.id);
+    return id != null && Objects.equals(id, that.id) && Objects.equals(amount, that.amount)
+        && Objects.equals(timestamp, that.timestamp) && Objects.equals(orderId, that.orderId) &&
+        Objects.equals(transactionId, that.transactionId) && Objects.equals(username, that.username) &&
+        Objects.equals(paymentStatus, that.paymentStatus) && Objects.equals(financialOperationType, that.financialOperationType);
   }
 
   @Override
   public int hashCode() {
-    return 0;
+    return id.hashCode() * amount.hashCode() * timestamp.hashCode() * orderId.hashCode()
+        * transactionId.hashCode() * username.hashCode() * paymentStatus.hashCode()
+        * financialOperationType.hashCode();
   }
 }

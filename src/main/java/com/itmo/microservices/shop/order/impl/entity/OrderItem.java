@@ -17,6 +17,7 @@ import org.hibernate.Hibernate;
 @ToString
 @RequiredArgsConstructor
 public class OrderItem {
+
   @Id
   private Long id;
   private UUID itemId;
@@ -34,11 +35,13 @@ public class OrderItem {
       return false;
     }
     OrderItem orderItem = (OrderItem) o;
-    return id != null && Objects.equals(id, orderItem.id);
+    return id != null && Objects.equals(id, orderItem.id) && Objects.equals(itemId,
+        orderItem.itemId) && Objects.equals(order, orderItem.order) && Objects.equals(amount,
+        orderItem.amount);
   }
 
   @Override
   public int hashCode() {
-    return 0;
+    return id.hashCode() * itemId.hashCode() * order.hashCode() * amount.hashCode();
   }
 }

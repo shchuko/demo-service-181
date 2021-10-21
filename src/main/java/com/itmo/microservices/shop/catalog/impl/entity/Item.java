@@ -34,11 +34,14 @@ public class Item {
       return false;
     }
     Item item = (Item) o;
-    return uuid != null && Objects.equals(uuid, item.uuid);
+    return uuid != null && Objects.equals(uuid, item.uuid) && Objects.equals(name, item.name)
+        && Objects.equals(price, item.price) && Objects.equals(description, item.description)
+        && Objects.equals(count, item.count);
   }
 
   @Override
   public int hashCode() {
-    return 0;
+    return uuid.hashCode() * name.hashCode() * price.hashCode() * description.hashCode()
+        * count.hashCode();
   }
 }
