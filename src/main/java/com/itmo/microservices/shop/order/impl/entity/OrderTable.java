@@ -40,7 +40,7 @@ public class OrderTable {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
       return false;
     }
     OrderTable orderTable = (OrderTable) o;

@@ -30,7 +30,7 @@ public class Item {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
       return false;
     }
     Item item = (Item) o;

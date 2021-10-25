@@ -26,7 +26,7 @@ public class PaymentStatus {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
       return false;
     }
     PaymentStatus paymentStatus = (PaymentStatus) o;

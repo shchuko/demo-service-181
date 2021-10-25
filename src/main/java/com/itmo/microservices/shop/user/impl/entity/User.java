@@ -27,7 +27,7 @@ public class User {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
       return false;
     }
     User user = (User) o;
