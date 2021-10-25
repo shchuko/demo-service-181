@@ -19,7 +19,7 @@ import org.hibernate.Hibernate;
 public class PaymentLogRecord {
 
   @Id
-  private Long id;
+  private UUID uuid;
   private Integer amount;
   private Long timestamp;
   private UUID orderId;
@@ -37,20 +37,15 @@ public class PaymentLogRecord {
     if (this == o) {
       return true;
     }
-    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    PaymentLogRecord that = (PaymentLogRecord) o;
-    return id != null && Objects.equals(id, that.id) && Objects.equals(amount, that.amount)
-        && Objects.equals(timestamp, that.timestamp) && Objects.equals(orderId, that.orderId) &&
-        Objects.equals(transactionId, that.transactionId) && Objects.equals(username, that.username) &&
-        Objects.equals(paymentStatus, that.paymentStatus) && Objects.equals(financialOperationType, that.financialOperationType);
+    PaymentLogRecord paymentLogRecord = (PaymentLogRecord) o;
+    return Objects.equals(uuid, paymentLogRecord.getUuid());
   }
 
   @Override
   public int hashCode() {
-    return id.hashCode() * amount.hashCode() * timestamp.hashCode() * orderId.hashCode()
-        * transactionId.hashCode() * username.hashCode() * paymentStatus.hashCode()
-        * financialOperationType.hashCode();
+    return Objects.hashCode(uuid);
   }
 }

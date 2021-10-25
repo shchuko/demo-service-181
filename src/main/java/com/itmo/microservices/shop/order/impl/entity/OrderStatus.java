@@ -1,6 +1,7 @@
 package com.itmo.microservices.shop.order.impl.entity;
 
 import java.util.Objects;
+import java.util.UUID;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import lombok.Getter;
@@ -17,7 +18,8 @@ import org.hibernate.Hibernate;
 public class OrderStatus {
 
   @Id
-  private Long id;
+  private UUID uuid;
+
   private String name;
 
   @Override
@@ -25,15 +27,15 @@ public class OrderStatus {
     if (this == o) {
       return true;
     }
-    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    OrderStatus that = (OrderStatus) o;
-    return id != null && Objects.equals(id, that.id) && Objects.equals(name, that.name);
+    OrderStatus orderStatus = (OrderStatus) o;
+    return Objects.equals(uuid, orderStatus.getUuid());
   }
 
   @Override
   public int hashCode() {
-    return id.hashCode() * name.hashCode();
+    return Objects.hashCode(uuid);
   }
 }

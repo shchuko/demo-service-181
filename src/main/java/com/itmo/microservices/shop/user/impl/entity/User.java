@@ -1,6 +1,7 @@
 package com.itmo.microservices.shop.user.impl.entity;
 
 import java.util.Objects;
+import java.util.UUID;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import lombok.Getter;
@@ -26,15 +27,15 @@ public class User {
     if (this == o) {
       return true;
     }
-    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
     User user = (User) o;
-    return username != null && Objects.equals(username, user.username) && Objects.equals(isAdmin, user.isAdmin);
+    return Objects.equals(username, user.getUsername());
   }
 
   @Override
   public int hashCode() {
-    return username.hashCode() + passwordHash.hashCode() + isAdmin.hashCode();
+    return Objects.hashCode(username);
   }
 }

@@ -30,18 +30,15 @@ public class Item {
     if (this == o) {
       return true;
     }
-    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
     Item item = (Item) o;
-    return uuid != null && Objects.equals(uuid, item.uuid) && Objects.equals(name, item.name)
-        && Objects.equals(price, item.price) && Objects.equals(description, item.description)
-        && Objects.equals(count, item.count);
+    return Objects.equals(uuid, item.getUuid());
   }
 
   @Override
   public int hashCode() {
-    return uuid.hashCode() * name.hashCode() * price.hashCode() * description.hashCode()
-        * count.hashCode();
+    return Objects.hashCode(uuid);
   }
 }

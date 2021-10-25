@@ -19,8 +19,7 @@ import org.hibernate.Hibernate;
 public class OrderItem {
 
   @Id
-  private Long id;
-  private UUID itemId;
+  private UUID uuid;
 
   @ManyToOne
   private OrderTable order;
@@ -31,17 +30,15 @@ public class OrderItem {
     if (this == o) {
       return true;
     }
-    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
     OrderItem orderItem = (OrderItem) o;
-    return id != null && Objects.equals(id, orderItem.id) && Objects.equals(itemId,
-        orderItem.itemId) && Objects.equals(order, orderItem.order) && Objects.equals(amount,
-        orderItem.amount);
+    return Objects.equals(uuid, orderItem.getUuid());
   }
 
   @Override
   public int hashCode() {
-    return id.hashCode() * itemId.hashCode() * order.hashCode() * amount.hashCode();
+    return Objects.hashCode(uuid);
   }
 }
