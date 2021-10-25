@@ -18,6 +18,7 @@ import org.hibernate.Hibernate;
 public class User {
 
   @Id
+  private UUID uuid;
   private String username;
   private String passwordHash;
   private Boolean isAdmin;
@@ -31,11 +32,11 @@ public class User {
       return false;
     }
     User user = (User) o;
-    return Objects.equals(username, user.getUsername());
+    return Objects.equals(uuid, user.getUuid());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(username);
+    return Objects.hashCode(uuid);
   }
 }
