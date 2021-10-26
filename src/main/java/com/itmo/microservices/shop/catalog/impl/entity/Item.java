@@ -23,7 +23,7 @@ public class Item {
   private String name;
   private Integer price;
   private String description;
-  private String count;
+  private Integer count;
 
   @Override
   public boolean equals(Object o) {
