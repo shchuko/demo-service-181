@@ -5,6 +5,7 @@ import com.itmo.microservices.shop.catalog.api.service.IItemService
 import com.itmo.microservices.shop.catalog.impl.entity.Item
 import com.itmo.microservices.shop.catalog.impl.mapper.ItemToItemDTOMapper
 import com.itmo.microservices.shop.catalog.impl.repository.ItemRepository
+import org.springframework.beans.BeanUtils
 import org.springframework.stereotype.Service
 import java.util.*
 import java.util.stream.Collectors
@@ -30,14 +31,10 @@ class ItemService(private val itemRepository: ItemRepository) : IItemService {
         itemRepository.delete(itemRepository.getById(uuid))
     }
 
-    override fun createItem(item: Item) {
+    override fun createItem(itemDTO: ItemDTO) {
+        var item = Item()
+        BeanUtils.copyProperties(itemDTO, item)
         itemRepository.save(item)
     }
 
-    override fun updateItem(item: Item) {
-        itemRepository.save(changeParams(itemRepository.getById(item.uuid), item))
-    }
-
-    private fun changeParams(sourceItem: Item, newItem: Item) =
-        Item(sourceItem.uuid, newItem.name, newItem.price, newItem.description, newItem.count)
 }
