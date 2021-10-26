@@ -10,9 +10,9 @@ import java.util.*
 import java.util.stream.Collectors
 
 @Service
-class ItemService (private val itemRepository: ItemRepository) : IItemService {
+class ItemService constructor(private val itemRepository: ItemRepository) : IItemService {
 
-    override fun getItems() = itemRepository.findAll()
+    override fun getItems(): MutableList<ItemDTO> = itemRepository.findAll()
         .stream()
         .map(ItemToItemDTOMapper::map)
         .collect(Collectors.toList())
