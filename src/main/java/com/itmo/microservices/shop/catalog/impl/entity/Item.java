@@ -4,10 +4,13 @@ package com.itmo.microservices.shop.catalog.impl.entity;
 import java.util.Objects;
 import java.util.UUID;
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 
 import kotlin.jvm.JvmOverloads;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
@@ -17,24 +20,19 @@ import org.hibernate.Hibernate;
 @Getter
 @Setter
 @ToString
-@RequiredArgsConstructor
+@NoArgsConstructor
+@AllArgsConstructor
 public class Item {
 
     @Id
+    @GeneratedValue
     private UUID uuid;
     private String name;
     private Integer price;
     private String description;
     private Integer count;
 
-    @JvmOverloads
-    public Item(UUID uuid, String name, Integer price, String description, Integer count) {
-        this.uuid = uuid;
-        this.name = name;
-        this.price = price;
-        this.description = description;
-        this.count = count;
-    }
+
 
     @Override
     public boolean equals(Object o) {

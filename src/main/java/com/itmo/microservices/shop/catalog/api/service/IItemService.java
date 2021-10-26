@@ -15,7 +15,6 @@ public interface IItemService {
 
     void deleteItem(UUID uuid);
 
-    void createItem(Item item);
+    void createItem(ItemDTO item);
 
-    void updateItem(Item item);
 }

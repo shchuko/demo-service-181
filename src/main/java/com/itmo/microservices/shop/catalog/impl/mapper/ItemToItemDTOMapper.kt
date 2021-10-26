@@ -7,7 +7,7 @@ class ItemToItemDTOMapper {
 
     companion object {
         fun map(data: Item) = ItemDTO(
-            data.uuid.toString(),
+            data.uuid,
             data.name,
             data.description,
             data.price,

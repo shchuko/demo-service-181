@@ -1,6 +1,7 @@
 package com.itmo.microservices.shop.catalog.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ItemDTO {
 
-    public ItemDTO(String id, String name, String description, int price, int count) {
+    public ItemDTO(UUID id, String name, String description, int price, int count) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -17,8 +18,7 @@ public class ItemDTO {
         this.count = count;
     }
 
-    @JsonProperty("id")
-    private String id;
+    private UUID id = UUID.randomUUID();
 
     @JsonProperty("name")
     private String name;
@@ -48,7 +48,7 @@ public class ItemDTO {
         return name;
     }
 
-    public String getId() {
+    public UUID getId() {
         return id;
     }
 }
