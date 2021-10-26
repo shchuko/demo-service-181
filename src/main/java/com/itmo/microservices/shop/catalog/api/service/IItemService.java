@@ -11,6 +11,8 @@ public interface IItemService {
 
     List<ItemDTO> getAvailableItems();
 
+    int getCountOfItem(UUID id);
+
     void deleteItem(UUID uuid);
 
     void createItem(Item item);

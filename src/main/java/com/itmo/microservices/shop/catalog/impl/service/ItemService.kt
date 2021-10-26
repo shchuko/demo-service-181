@@ -10,9 +10,9 @@ import java.util.*
 import java.util.stream.Collectors
 
 @Service
-class ItemService constructor(private val itemRepository: ItemRepository) : IItemService {
+class ItemService(private val itemRepository: ItemRepository) : IItemService {
 
-    override fun getItems(): MutableList<ItemDTO> = itemRepository.findAll()
+    override fun getItems() = itemRepository.findAll()
         .stream()
         .map(ItemToItemDTOMapper::map)
         .collect(Collectors.toList())
@@ -24,8 +24,10 @@ class ItemService constructor(private val itemRepository: ItemRepository) : IIte
         }
     }
 
+    override fun getCountOfItem(id: UUID) = itemRepository.getById(id).count
+
     override fun deleteItem(uuid: UUID) {
-        itemRepository.delete(itemRepository.findById(uuid).get())
+        itemRepository.delete(itemRepository.getById(uuid))
     }
 
     override fun createItem(item: Item) {
@@ -33,7 +35,7 @@ class ItemService constructor(private val itemRepository: ItemRepository) : IIte
     }
 
     override fun updateItem(item: Item) {
-        itemRepository.save(changeParams(itemRepository.findById(item.uuid).get(), item))
+        itemRepository.save(changeParams(itemRepository.getById(item.uuid), item))
     }
 
     private fun changeParams(sourceItem: Item, newItem: Item) =
