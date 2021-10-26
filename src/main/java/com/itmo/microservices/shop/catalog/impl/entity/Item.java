@@ -5,6 +5,8 @@ import java.util.Objects;
 import java.util.UUID;
 import javax.persistence.Entity;
 import javax.persistence.Id;
+
+import kotlin.jvm.JvmOverloads;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -18,47 +20,56 @@ import org.hibernate.Hibernate;
 @RequiredArgsConstructor
 public class Item {
 
-  @Id
-  private UUID uuid;
-  private String name;
-  private Integer price;
-  private String description;
-  private Integer count;
+    @Id
+    private UUID uuid;
+    private String name;
+    private Integer price;
+    private String description;
+    private Integer count;
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
+    @JvmOverloads
+    public Item(UUID uuid, String name, Integer price, String description, Integer count) {
+        this.uuid = uuid;
+        this.name = name;
+        this.price = price;
+        this.description = description;
+        this.count = count;
     }
-    if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
-      return false;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
+            return false;
+        }
+        Item item = (Item) o;
+        return Objects.equals(uuid, item.getUuid());
     }
-    Item item = (Item) o;
-    return Objects.equals(uuid, item.getUuid());
-  }
 
-  public UUID getUuid() {
-    return uuid;
-  }
+    public UUID getUuid() {
+        return uuid;
+    }
 
-  public String getName() {
-    return name;
-  }
+    public String getName() {
+        return name;
+    }
 
-  public Integer getPrice() {
-    return price;
-  }
+    public Integer getPrice() {
+        return price;
+    }
 
-  public String getDescription() {
-    return description;
-  }
+    public String getDescription() {
+        return description;
+    }
 
-  public Integer getCount() {
-    return count;
-  }
+    public Integer getCount() {
+        return count;
+    }
 
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(uuid);
-  }
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(uuid);
+    }
 }

@@ -8,9 +8,4 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ItemRepository extends JpaRepository<Item, UUID> {
-    @Query(
-            value = "select * from Item where Item.count > ?1",
-            nativeQuery = true
-    )
-    List<Item> findAllWhereCountMoreThan(Integer value);
 }

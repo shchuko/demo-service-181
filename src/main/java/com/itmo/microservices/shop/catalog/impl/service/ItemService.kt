@@ -1,15 +1,16 @@
 package com.itmo.microservices.shop.catalog.impl.service
 
-import org.springframework.beans.factory.annotation.Autowired
-import com.itmo.microservices.shop.catalog.impl.repository.ItemRepository
-import com.itmo.microservices.shop.catalog.api.service.IItemService
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO
+import com.itmo.microservices.shop.catalog.api.service.IItemService
+import com.itmo.microservices.shop.catalog.impl.entity.Item
 import com.itmo.microservices.shop.catalog.impl.mapper.ItemToItemDTOMapper
+import com.itmo.microservices.shop.catalog.impl.repository.ItemRepository
 import org.springframework.stereotype.Service
+import java.util.*
 import java.util.stream.Collectors
 
 @Service
-class ItemService @Autowired constructor(private val itemRepository: ItemRepository) : IItemService {
+class ItemService (private val itemRepository: ItemRepository) : IItemService {
 
     override fun getItems() = itemRepository.findAll()
         .stream()
@@ -17,8 +18,24 @@ class ItemService @Autowired constructor(private val itemRepository: ItemReposit
         .collect(Collectors.toList())
 
 
-    override fun getAvailableItems() = itemRepository.findAllWhereCountMoreThan(0)
-        .stream()
-        .map(ItemToItemDTOMapper::map)
-        .collect(Collectors.toList())
+    override fun getAvailableItems(): List<ItemDTO> {
+        return items.filter { item ->
+            item.count > 0
+        }
+    }
+
+    override fun deleteItem(uuid: UUID) {
+        itemRepository.delete(itemRepository.findById(uuid).get())
+    }
+
+    override fun createItem(item: Item) {
+        itemRepository.save(item)
+    }
+
+    override fun updateItem(item: Item) {
+        itemRepository.save(changeParams(itemRepository.findById(item.uuid).get(), item))
+    }
+
+    private fun changeParams(sourceItem: Item, newItem: Item) =
+        Item(sourceItem.uuid, newItem.name, newItem.price, newItem.description, newItem.count)
 }
