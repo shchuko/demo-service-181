@@ -37,6 +37,26 @@ public class Item {
     return Objects.equals(uuid, item.getUuid());
   }
 
+  public UUID getUuid() {
+    return uuid;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public Integer getPrice() {
+    return price;
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public Integer getCount() {
+    return count;
+  }
+
   @Override
   public int hashCode() {
     return Objects.hashCode(uuid);
