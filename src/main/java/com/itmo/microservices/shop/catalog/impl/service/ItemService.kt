@@ -17,9 +17,8 @@ class ItemService @Autowired constructor(private val itemRepository: ItemReposit
         .collect(Collectors.toList())
 
 
-    override fun getAvailableItems(): List<ItemDTO> {
-        return items.filter { item ->
-            item.count > 0
-        }
-    }
+    override fun getAvailableItems() = itemRepository.findAllWhereCountMoreThan(0)
+        .stream()
+        .map(ItemToItemDTOMapper::map)
+        .collect(Collectors.toList())
 }
