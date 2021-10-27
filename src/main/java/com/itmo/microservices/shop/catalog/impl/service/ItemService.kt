@@ -18,12 +18,7 @@ class ItemService(private val itemRepository: ItemRepository) : IItemService {
         .map(ItemToItemDTOMapper::map)
         .collect(Collectors.toList())
 
-
-    override fun getAvailableItems(): List<ItemDTO> {
-        return items.filter { item ->
-            item.count > 0
-        }
-    }
+    override fun getAvailableItems() = items.filter { item -> item.count > 0 }
 
     override fun getCountOfItem(id: UUID) = itemRepository.getById(id).count
 
@@ -32,9 +27,8 @@ class ItemService(private val itemRepository: ItemRepository) : IItemService {
     }
 
     override fun createItem(itemDTO: ItemDTO) {
-        var item = Item()
+        val item = Item()
         BeanUtils.copyProperties(itemDTO, item)
         itemRepository.save(item)
     }
-
 }
