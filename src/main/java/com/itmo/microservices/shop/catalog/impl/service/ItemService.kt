@@ -3,6 +3,7 @@ package com.itmo.microservices.shop.catalog.impl.service
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO
 import com.itmo.microservices.shop.catalog.api.service.IItemService
 import com.itmo.microservices.shop.catalog.impl.entity.Item
+import com.itmo.microservices.shop.catalog.impl.mapper.ItemDTOToItemMapper
 import com.itmo.microservices.shop.catalog.impl.mapper.ItemToItemDTOMapper
 import com.itmo.microservices.shop.catalog.impl.repository.ItemRepository
 import org.springframework.beans.BeanUtils
@@ -18,7 +19,8 @@ class ItemService(private val itemRepository: ItemRepository<Item>) : IItemServi
         .map(ItemToItemDTOMapper::map)
         .collect(Collectors.toList())
 
-    override fun getAvailableItems(): MutableList<ItemDTO> = itemRepository.returnAvailableItems().stream().map(ItemToItemDTOMapper::map).collect(Collectors.toList())
+    override fun getAvailableItems(): MutableList<ItemDTO> =
+        itemRepository.returnAvailableItems().stream().map(ItemToItemDTOMapper::map).collect(Collectors.toList())
 
     override fun getCountOfItem(uuid: UUID): Int = itemRepository.getCount(uuid)
 
@@ -27,15 +29,13 @@ class ItemService(private val itemRepository: ItemRepository<Item>) : IItemServi
     }
 
     override fun createItem(itemDTO: ItemDTO) {
-        val item = Item()
-        BeanUtils.copyProperties(itemDTO, item, "uuid")
-
-        itemRepository.save(item)
+        itemRepository.save(ItemDTOToItemMapper.map(itemDTO))
     }
 
     fun updateItem(uuid: UUID, itemDTO: ItemDTO) {
-        val item = itemRepository.getById(uuid);
-        BeanUtils.copyProperties(itemDTO, item, "uuid")
-        itemRepository.save(item)
+        itemRepository.getById(uuid).apply {
+            BeanUtils.copyProperties(itemDTO, this, "uuid")
+            itemRepository.save(this)
+        }
     }
 }
