@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+  xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd
+        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd
+        http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.3.xsd">
+
+  <property name="uuid_function" value="uuid_generate_v4()" dbms="postgresql"/>
+  <property name="uuid_function" value="random_uuid()" dbms="h2"/>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-create-user" author="Vladislav Yaroshchuk">
+    <createTable tableName="user">
+      <column name="id" type="uuid" defaultValueComputed="${uuid_function}">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="username" type="varchar(32)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+      <column name="password_hash" type="varchar(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="is_admin" type="boolean" defaultValue="false">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-create-ordertable"
+    author="Vladislav Yaroshchuk">
+    <createTable tableName="order_table">
+      <column name="id" type="uuid" defaultValueComputed="${uuid_function}">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="time_created" type="long">
+        <constraints nullable="false"/>
+      </column>
+      <column name="delivery_duration" type="int">
+        <constraints nullable="true"/>
+      </column>
+      <column name="user_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="status_id" type="int">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-create-orderstatus"
+    author="Vladislav Yaroshchuk">
+    <createTable tableName="order_status">
+      <column name="id" type="int" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="varchar(50)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-create-orderitem"
+    author="Vladislav Yaroshchuk">
+    <createTable tableName="order_item">
+      <column name="order_id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="item_id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="amount" type="int">
+        <constraints nullable="false"/>
+      </column>
+      <column name="price" type="int">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-create-paymentlogrecord"
+    author="Vladislav Yaroshchuk">
+    <createTable tableName="payment_log_record">
+      <column name="id" type="uuid" defaultValueComputed="${uuid_function}">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="amount" type="int">
+        <constraints nullable="false"/>
+      </column>
+      <column name="timestamp" type="long">
+        <constraints nullable="false"/>
+      </column>
+      <column name="order_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="transaction_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="user_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="payment_status_id" type="int">
+        <constraints nullable="false"/>
+      </column>
+      <column name="financial_operation_type_id" type="int">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-create-finantialoperationtype"
+    author="Vladislav Yaroshchuk">
+    <createTable tableName="financial_operation_type">
+      <column name="id" type="int" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="varchar(50)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-create-paymentstatus"
+    author="Vladislav Yaroshchuk">
+    <createTable tableName="payment_status">
+      <column name="id" type="int" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="varchar(50)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-create-item"
+    author="Vladislav Yaroshchuk">
+    <createTable tableName="item">
+      <column name="id" type="uuid" defaultValueComputed="${uuid_function}">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="varchar(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="price" type="int">
+        <constraints nullable="false"/>
+      </column>
+      <column name="description" type="varchar(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="amount" type="int">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-add-ordertable-orderstatus-fk"
+    author="Vladislav Yaroshchuk">
+    <addForeignKeyConstraint baseTableName="order_table"
+      baseColumnNames="status_id"
+      constraintName="fk_order_table_order_status"
+      referencedTableName="order_status"
+      referencedColumnNames="id"/>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-add-orderitem-ordertable-fk"
+    author="Vladislav Yaroshchuk">
+    <addForeignKeyConstraint baseTableName="order_item"
+      baseColumnNames="order_id"
+      constraintName="fk_order_item_order_table"
+      referencedTableName="order_table"
+      referencedColumnNames="id"/>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-add-paymentlogrecord-paymentstatus-fk"
+    author="Vladislav Yaroshchuk">
+    <addForeignKeyConstraint baseTableName="payment_log_record"
+      baseColumnNames="payment_status_id"
+      constraintName="fk_paymentlogrecord_paymentstatus"
+      referencedTableName="payment_status"
+      referencedColumnNames="id"/>
+  </changeSet>
+
+  <changeSet id="2021-10-27-01-initial-schema-create-add-paymentlogrecord-financialoperationtype-fk"
+    author="Vladislav Yaroshchuk">
+    <addForeignKeyConstraint baseTableName="payment_log_record"
+      baseColumnNames="financial_operation_type_id"
+      constraintName="fk_paymentlogrecord_financialoperationtype"
+      referencedTableName="financial_operation_type"
+      referencedColumnNames="id"/>
+  </changeSet>
+
+</databaseChangeLog>

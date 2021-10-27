@@ -1,7 +1,6 @@
 package com.itmo.microservices.shop.payment.impl.entity;
 
 import java.util.Objects;
-import java.util.UUID;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import lombok.Getter;
@@ -18,7 +17,7 @@ import org.hibernate.Hibernate;
 public class FinancialOperationType {
 
   @Id
-  private UUID uuid;
+  private Integer id;
   private String name;
 
   @Override
@@ -30,11 +29,11 @@ public class FinancialOperationType {
       return false;
     }
     FinancialOperationType financialOperationType = (FinancialOperationType) o;
-    return Objects.equals(uuid, financialOperationType.getUuid());
+    return Objects.equals(id, financialOperationType.getId());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(uuid);
+    return Objects.hashCode(id);
   }
 }

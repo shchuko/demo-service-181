@@ -1,4 +1,4 @@
 databaseChangeLog:
   - include:
-      file: migrations/v1/changelog-v1-cumulative.yaml
+      file: 2021-10-27-01-initial-schema-import.xml
       relativeToChangelogFile: true
