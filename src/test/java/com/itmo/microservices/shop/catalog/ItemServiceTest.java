@@ -35,8 +35,6 @@ public class ItemServiceTest {
             new Item(UUID.randomUUID(), "name1", 2, "desc2", 0)
     );
 
-    private List<ItemDTO> mockedItemsDTO = mockedItems.stream().map(ItemToItemDTOMapper.Companion::map).collect(Collectors.toList());
-
 
     @Test
     public void whenGetItems_thenReturnAllItemsIncludesWithZeroAmount(){
@@ -44,31 +42,35 @@ public class ItemServiceTest {
                 .thenReturn(mockedItems);
 
         var test =  itemService.getItems();
-        var correct = mockedItemsDTO;
+        var correct = fromEntityToDto(mockedItems);
         Assertions.assertEquals(correct, test);
     }
 
     @Test
     public void whenGetAvailableItems_thenReturnAllItemsWithoutZeroAmount() {
-        Mockito.when(itemRepository.findAll())
-                .thenReturn(mockedItems);
+        var available = mockedItems.stream().filter(item -> item.getCount() > 0).collect(Collectors.toList());
+        Mockito.when(itemRepository.returnAvailableItems())
+                .thenReturn(available);
 
         var test =  itemService.getAvailableItems();
-        var correct = mockedItemsDTO.stream().filter(item -> item.getCount() > 0).collect(Collectors.toList());
-        Assertions.assertEquals(correct, test);
+        Assertions.assertEquals(fromEntityToDto(available), test);
     }
 
     @Test
     public void whenGetCountOfExistedItem_thenReturnCount() {
         UUID testUUID = UUID.randomUUID();
         Item testItem = new Item(testUUID, "name1", 1, "desc1", 1);
-        Mockito.when(itemRepository.getById(testUUID))
-                .thenReturn(testItem);
+        Mockito.when(itemRepository.getCount(testUUID))
+                .thenReturn(testItem.getCount());
 
 
         var test = itemService.getCountOfItem(testUUID);
         var correct = testItem.getCount();
         Assertions.assertEquals(correct, test);
+    }
+
+    private List<ItemDTO> fromEntityToDto(List<Item> items) {
+        return items.stream().map(ItemToItemDTOMapper.Companion::map).collect(Collectors.toList());
     }
 
 }

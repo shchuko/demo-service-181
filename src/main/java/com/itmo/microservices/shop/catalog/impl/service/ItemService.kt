@@ -11,16 +11,16 @@ import java.util.*
 import java.util.stream.Collectors
 
 @Service
-class ItemService(private val itemRepository: ItemRepository) : IItemService {
+class ItemService(private val itemRepository: ItemRepository<Item>) : IItemService {
 
-    override fun getItems() = itemRepository.findAll()
+    override fun getItems(): MutableList<ItemDTO> = itemRepository.findAll()
         .stream()
         .map(ItemToItemDTOMapper::map)
         .collect(Collectors.toList())
 
-    override fun getAvailableItems() = items.filter { item -> item.count > 0 }
+    override fun getAvailableItems(): MutableList<ItemDTO> = itemRepository.returnAvailableItems().stream().map(ItemToItemDTOMapper::map).collect(Collectors.toList())
 
-    override fun getCountOfItem(id: UUID) = itemRepository.getById(id).count
+    override fun getCountOfItem(uuid: UUID): Int = itemRepository.getCount(uuid)
 
     override fun deleteItem(uuid: UUID) {
         itemRepository.delete(itemRepository.getById(uuid))
