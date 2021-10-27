@@ -1,5 +1,6 @@
-package com.itmo.microservices.shop.catalog;
+package com.itmo.microservices.shop.catalog.service;
 
+import com.itmo.microservices.shop.catalog.CatalogTest;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.impl.entity.Item;
 import com.itmo.microservices.shop.catalog.impl.mapper.ItemToItemDTOMapper;
