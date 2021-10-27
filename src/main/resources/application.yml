@@ -10,6 +10,9 @@ spring:
     database: postgresql
     hibernate:
       ddl-auto: update
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
 
 server:
   error:
