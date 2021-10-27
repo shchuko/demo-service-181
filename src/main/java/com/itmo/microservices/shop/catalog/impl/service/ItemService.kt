@@ -29,6 +29,7 @@ class ItemService(private val itemRepository: ItemRepository<Item>) : IItemServi
     override fun createItem(itemDTO: ItemDTO) {
         val item = Item()
         BeanUtils.copyProperties(itemDTO, item, "uuid")
+
         itemRepository.save(item)
     }
 
