@@ -2,23 +2,16 @@ package com.itmo.microservices.shop.catalog.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.UUID;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
+@AllArgsConstructor
 public class ItemDTO {
-
-    public ItemDTO(UUID id, String name, String description, int price, int count) {
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.price = price;
-        this.count = count;
-    }
-
-    private UUID id = UUID.randomUUID();
+    private UUID uuid;
 
     @JsonProperty("name")
     private String name;
@@ -32,23 +25,4 @@ public class ItemDTO {
     @JsonProperty("availableAmount")
     private int count;
 
-    public int getCount() {
-        return count;
-    }
-
-    public int getPrice() {
-        return price;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public UUID getId() {
-        return id;
-    }
 }
