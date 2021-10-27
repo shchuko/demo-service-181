@@ -17,24 +17,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.util.*;
 import java.util.stream.Collectors;
 
 @RunWith(SpringRunner.class)
 @AutoConfigureMockMvc
 @SpringBootTest
-public class ItemServiceTest {
+public class ItemServiceTest extends CatalogTest {
     @MockBean
     private ItemRepository itemRepository;
 
     @Autowired
     private ItemService itemService;
-
-    private final List<Item> mockedItems = Arrays.asList(
-            new Item(UUID.randomUUID(), "name1", 1, "desc1", 1),
-            new Item(UUID.randomUUID(), "name1", 2, "desc2", 0)
-    );
-
 
     @Test
     public void whenGetItems_thenReturnAllItemsIncludesWithZeroAmount(){
@@ -58,19 +51,12 @@ public class ItemServiceTest {
 
     @Test
     public void whenGetCountOfExistedItem_thenReturnCount() {
-        UUID testUUID = UUID.randomUUID();
-        Item testItem = new Item(testUUID, "name1", 1, "desc1", 1);
-        Mockito.when(itemRepository.getCount(testUUID))
-                .thenReturn(testItem.getCount());
+        Mockito.when(itemRepository.getCount(mockedUUID))
+                .thenReturn(mockedItem.getCount());
 
 
-        var test = itemService.getCountOfItem(testUUID);
-        var correct = testItem.getCount();
+        var test = itemService.getCountOfItem(mockedUUID);
+        var correct = mockedItem.getCount();
         Assertions.assertEquals(correct, test);
     }
-
-    private List<ItemDTO> fromEntityToDto(List<Item> items) {
-        return items.stream().map(ItemToItemDTOMapper.Companion::map).collect(Collectors.toList());
-    }
-
 }
