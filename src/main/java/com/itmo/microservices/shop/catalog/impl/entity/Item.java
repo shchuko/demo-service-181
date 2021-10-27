@@ -19,11 +19,11 @@ import org.hibernate.Hibernate;
 public class Item {
 
   @Id
-  private UUID uuid;
+  private UUID id;
   private String name;
   private Integer price;
   private String description;
-  private String count;
+  private Integer amount;
 
   @Override
   public boolean equals(Object o) {
@@ -34,11 +34,11 @@ public class Item {
       return false;
     }
     Item item = (Item) o;
-    return Objects.equals(uuid, item.getUuid());
+    return Objects.equals(id, item.getId());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(uuid);
+    return Objects.hashCode(id);
   }
 }
