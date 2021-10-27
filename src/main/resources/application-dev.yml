@@ -10,6 +10,9 @@ spring:
     console:
       enabled: true
       path: /h2-console
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
 
 security:
   token-lifetime: 30m
