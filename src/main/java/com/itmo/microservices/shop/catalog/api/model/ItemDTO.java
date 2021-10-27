@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class ItemDTO {
     private UUID uuid;
 
