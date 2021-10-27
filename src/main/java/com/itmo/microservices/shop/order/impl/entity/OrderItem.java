@@ -3,27 +3,40 @@ package com.itmo.microservices.shop.order.impl.entity;
 import java.util.Objects;
 import java.util.UUID;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.Id;
+import javax.persistence.IdClass;
+import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import lombok.ToString;
 import org.hibernate.Hibernate;
 
 @Entity
 @Getter
 @Setter
-@ToString
 @RequiredArgsConstructor
+@IdClass(OrderItemID.class)
 public class OrderItem {
 
   @Id
-  private UUID uuid;
+  public UUID orderId;
 
-  @ManyToOne
+  @Id
+  public UUID itemId;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(
+      name = "orderId",
+      nullable = false,
+      insertable = false,
+      updatable = false)
   private OrderTable order;
+
   private Integer amount;
+
+  private Integer price;
 
   @Override
   public boolean equals(Object o) {
@@ -34,11 +47,24 @@ public class OrderItem {
       return false;
     }
     OrderItem orderItem = (OrderItem) o;
-    return Objects.equals(uuid, orderItem.getUuid());
+    return Objects.equals(orderId, orderItem.orderId)
+        && Objects.equals(itemId, orderItem.itemId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(uuid);
+    return Objects.hash(orderId, itemId);
+  }
+
+  @Override
+  public String toString() {
+    /* Using vanilla Java instead of lombok because of LAZY fetch type */
+    return "OrderItem(" +
+        "orderId=" + orderId +
+        ", itemId=" + itemId +
+        ", order=" + (Hibernate.isInitialized(order) ? order : "<NOT_FETCHED>") +
+        ", amount=" + amount +
+        ", price=" + price +
+        ")";
   }
 }

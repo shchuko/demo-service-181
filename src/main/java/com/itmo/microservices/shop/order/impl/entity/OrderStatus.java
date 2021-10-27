@@ -1,7 +1,6 @@
 package com.itmo.microservices.shop.order.impl.entity;
 
 import java.util.Objects;
-import java.util.UUID;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import lombok.Getter;
@@ -18,8 +17,7 @@ import org.hibernate.Hibernate;
 public class OrderStatus {
 
   @Id
-  private UUID uuid;
-
+  private Integer id;
   private String name;
 
   @Override
@@ -31,11 +29,11 @@ public class OrderStatus {
       return false;
     }
     OrderStatus orderStatus = (OrderStatus) o;
-    return Objects.equals(uuid, orderStatus.getUuid());
+    return Objects.equals(id, orderStatus.getId());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(uuid);
+    return Objects.hashCode(id);
   }
 }
