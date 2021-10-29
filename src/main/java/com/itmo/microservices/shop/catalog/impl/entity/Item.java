@@ -1,3 +1,4 @@
+
 package com.itmo.microservices.shop.catalog.impl.entity;
 
 
@@ -7,32 +8,24 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 
-import kotlin.jvm.JvmOverloads;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 import org.hibernate.Hibernate;
 
 @Entity
-@ToString
-@NoArgsConstructor
-@AllArgsConstructor
-@Setter
 @Getter
+@Setter
+@ToString
+@RequiredArgsConstructor
+@AllArgsConstructor
 public class Item {
 
     @Id
     @GeneratedValue
-    private UUID uuid;
-
+    private UUID id;
     private String name;
     private Integer price;
     private String description;
-    private Integer count;
+    private Integer amount;
 
     @Override
     public boolean equals(Object o) {
@@ -43,11 +36,11 @@ public class Item {
             return false;
         }
         Item item = (Item) o;
-        return Objects.equals(uuid, item.getUuid());
+        return Objects.equals(id, item.getId());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(uuid);
+        return Objects.hashCode(id);
     }
 }

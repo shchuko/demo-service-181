@@ -2,10 +2,8 @@ package com.itmo.microservices.shop.catalog;
 
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.impl.entity.Item;
-import com.itmo.microservices.shop.catalog.impl.mapper.ItemToItemDTOMapper;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class HardcodedValues {
 
@@ -27,6 +25,6 @@ public class HardcodedValues {
     }
 
     protected static ItemDTO fromEntityToDto(Item item) {
-        return new ItemDTO(item.getUuid(),item.getName(),item.getDescription(),item.getPrice(),item.getCount());
+        return new ItemDTO(item.getId(),item.getName(),item.getDescription(),item.getPrice(),item.getAmount());
     }
 }

@@ -40,9 +40,9 @@ public class ItemRepositoryTest extends HardcodedValues {
     public void returnAvailableItems(){
         itemRepository.saveAllAndFlush(mockedItems);
         var test = itemRepository.returnAvailableItems();
-        var correct = mockedItems.stream().filter(item -> item.getCount() > 0).collect(Collectors.toList());
-        test.forEach(t -> t.setUuid(null));
-        correct.forEach(t -> t.setUuid(null));
+        var correct = mockedItems.stream().filter(item -> item.getAmount() > 0).collect(Collectors.toList());
+        test.forEach(t -> t.setId(null));
+        correct.forEach(t -> t.setId(null));
         Assert.assertEquals(correct, test);
     }
 
@@ -50,8 +50,8 @@ public class ItemRepositoryTest extends HardcodedValues {
     public void getCount(){
         itemRepository.save(mockedItem);
         var item = itemRepository.findAll().stream().findFirst();
-        var test = itemRepository.getCount(item.get().getUuid());
-        var correct = mockedItem.getCount();
+        var test = itemRepository.getCount(item.get().getId());
+        var correct = mockedItem.getAmount();
         Assert.assertEquals(correct, test);
     }
 
@@ -59,8 +59,8 @@ public class ItemRepositoryTest extends HardcodedValues {
     public void whenSave_thenGenerateNewUUID(){
         itemRepository.save(mockedItem);
         var item = itemRepository.findAll().stream().findFirst();
-        var test = item.get().getUuid();
-        var correct = mockedItem.getUuid();
+        var test = item.get().getId();
+        var correct = mockedItem.getId();
         Assert.assertNotEquals(correct, test);
     }
 }

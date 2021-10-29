@@ -8,7 +8,7 @@ class ItemDTOToItemMapper {
 
     companion object {
         fun map(data: ItemDTO): Item = Item().apply {
-            BeanUtils.copyProperties(data, this, "uuid")
+            BeanUtils.copyProperties(data, this, "id")
         }
     }
 }

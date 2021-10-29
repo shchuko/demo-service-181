@@ -41,7 +41,7 @@ public class ItemControllerRolesTest extends HardcodedValues {
     private final static ObjectMapper mapper = new ObjectMapper();
 
     private final static List<ItemDTO> availableItems = mockedItemsDto.stream()
-            .filter(item -> item.getCount() > 0).collect(Collectors.toList());
+            .filter(item -> item.getAmount() > 0).collect(Collectors.toList());
 
 
     @Test

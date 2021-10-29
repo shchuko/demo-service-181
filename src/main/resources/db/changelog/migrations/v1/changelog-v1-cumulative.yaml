@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: 2021-10-27-01-initial-schema-import.xml
+      relativeToChangelogFile: true

@@ -6,7 +6,6 @@ import java.util.UUID;
 import javax.validation.constraints.DecimalMin;
 import lombok.AllArgsConstructor;
 
-import org.hibernate.cache.spi.support.AbstractReadWriteAccess.Item;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;

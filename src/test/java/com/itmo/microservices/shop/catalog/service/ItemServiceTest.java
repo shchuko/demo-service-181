@@ -1,6 +1,5 @@
 package com.itmo.microservices.shop.catalog.service;
 
-
 import com.itmo.microservices.shop.catalog.HardcodedValues;
 import com.itmo.microservices.shop.catalog.impl.repository.ItemRepository;
 import com.itmo.microservices.shop.catalog.impl.service.ItemService;
@@ -40,7 +39,7 @@ public class ItemServiceTest extends HardcodedValues {
 
     @Test
     public void whenGetAvailableItems_thenReturnAllItemsWithoutZeroAmount() {
-        var available = mockedItems.stream().filter(item -> item.getCount() > 0).collect(Collectors.toList());
+        var available = mockedItems.stream().filter(item -> item.getAmount() > 0).collect(Collectors.toList());
         Mockito.when(itemRepository.returnAvailableItems())
                 .thenReturn(available);
 
@@ -51,11 +50,11 @@ public class ItemServiceTest extends HardcodedValues {
     @Test
     public void whenGetCountOfExistedItem_thenReturnCount() {
         Mockito.when(itemRepository.getCount(mockedUUID))
-                .thenReturn(mockedItem.getCount());
+                .thenReturn(mockedItem.getAmount());
 
 
         var test = itemService.getCountOfItem(mockedUUID);
-        var correct = mockedItem.getCount();
-        Assert.assertEquals((long)correct, test);
+        var correct = (int)mockedItem.getAmount();
+        Assert.assertEquals(correct, test);
     }
 }

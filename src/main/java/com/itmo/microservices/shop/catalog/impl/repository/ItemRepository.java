@@ -13,9 +13,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ItemRepository<T> extends JpaRepository<Item, UUID> {
 
-  @Query(value = "select it from Item it where it.count > 0")
+  @Query(value = "select it from Item it where it.amount > 0")
   List<T> returnAvailableItems();
 
-  @Query("select it.count from Item it where it.uuid = :uuid")
+  @Query("select it.amount from Item it where it.id = :uuid")
   Integer getCount(@Param("uuid") UUID uuid);
 }

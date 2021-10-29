@@ -46,7 +46,7 @@ public class ItemControllerTest extends HardcodedValues {
     private final static ObjectMapper mapper = new ObjectMapper();
 
     private final static List<ItemDTO> availableItems = mockedItemsDto.stream()
-            .filter(item -> item.getCount() > 0).collect(Collectors.toList());
+            .filter(item -> item.getAmount() > 0).collect(Collectors.toList());
 
 
     @Test
@@ -111,11 +111,11 @@ public class ItemControllerTest extends HardcodedValues {
 
     @Test
     public void whenGet_Id_thenReturnCountOfItem() throws Exception {
-        Mockito.doReturn(mockedItem.getCount()).when(itemService).getCountOfItem(isA(UUID.class));
+        Mockito.doReturn(mockedItem.getAmount()).when(itemService).getCountOfItem(isA(UUID.class));
 
-        final String expectedResponseContent = mockedItem.getCount().toString();
+        final String expectedResponseContent = mockedItem.getAmount().toString();
 
-        this.mockMvc.perform(get("/items/" + mockedItem.getUuid()))
+        this.mockMvc.perform(get("/items/" + mockedItem.getId()))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -128,7 +128,7 @@ public class ItemControllerTest extends HardcodedValues {
 
         final String expectedResponseContent = "";
 
-        this.mockMvc.perform(delete("/items/" + mockedItem.getUuid()))
+        this.mockMvc.perform(delete("/items/" + mockedItem.getId()))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().string(expectedResponseContent));
@@ -140,7 +140,7 @@ public class ItemControllerTest extends HardcodedValues {
 
         final String expectedResponseContent = "";
 
-        this.mockMvc.perform(delete("/items/" + mockedItem.getUuid()))
+        this.mockMvc.perform(delete("/items/" + mockedItem.getId()))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().string(expectedResponseContent));
