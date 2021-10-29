@@ -1,29 +1,27 @@
 package com.itmo.microservices.shop.catalog.service;
 
-import com.itmo.microservices.shop.catalog.CatalogTest;
-import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
-import com.itmo.microservices.shop.catalog.impl.entity.Item;
-import com.itmo.microservices.shop.catalog.impl.mapper.ItemToItemDTOMapper;
+
+import com.itmo.microservices.shop.catalog.HardcodedValues;
 import com.itmo.microservices.shop.catalog.impl.repository.ItemRepository;
 import com.itmo.microservices.shop.catalog.impl.service.ItemService;
-import org.junit.Before;
+import org.junit.Assert;
 import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.util.stream.Collectors;
 
+@ActiveProfiles("dev")
 @RunWith(SpringRunner.class)
 @AutoConfigureMockMvc
 @SpringBootTest
-public class ItemServiceTest extends CatalogTest {
+public class ItemServiceTest extends HardcodedValues {
     @MockBean
     private ItemRepository itemRepository;
 
@@ -37,7 +35,7 @@ public class ItemServiceTest extends CatalogTest {
 
         var test =  itemService.getItems();
         var correct = fromEntityToDto(mockedItems);
-        Assertions.assertEquals(correct, test);
+        Assert.assertEquals(correct, test);
     }
 
     @Test
@@ -47,7 +45,7 @@ public class ItemServiceTest extends CatalogTest {
                 .thenReturn(available);
 
         var test =  itemService.getAvailableItems();
-        Assertions.assertEquals(fromEntityToDto(available), test);
+        Assert.assertEquals(fromEntityToDto(available), test);
     }
 
     @Test
@@ -58,6 +56,6 @@ public class ItemServiceTest extends CatalogTest {
 
         var test = itemService.getCountOfItem(mockedUUID);
         var correct = mockedItem.getCount();
-        Assertions.assertEquals(correct, test);
+        Assert.assertEquals((long)correct, test);
     }
 }

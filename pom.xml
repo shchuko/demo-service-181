@@ -29,6 +29,17 @@
          
     <dependencies>
         <dependency>
+            <groupId>org.hibernate</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <version>7.0.1.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <version>5.3.3.RELEASE</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.itmo.microservices</groupId>
             <artifactId>common-lib</artifactId>
             <version>${common-lib.version}</version>

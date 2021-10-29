@@ -30,13 +30,13 @@ public class ItemController {
   private ItemService itemService;
 
   @GetMapping()
-  ResponseEntity<List<ItemDTO>> getAllItems(@RequestParam(value = "available") boolean available) {
+  ResponseEntity<List<ItemDTO>> getAllItems(@RequestParam(value = "available", required = false) boolean available) {
     return available ? new ResponseEntity<List<ItemDTO>>(itemService.getAvailableItems(),
         HttpStatus.OK) : new ResponseEntity<List<ItemDTO>>(itemService.getItems(), HttpStatus.OK);
   }
 
   @GetMapping("/{id}")
-  ResponseEntity<Integer> getItem(@PathVariable @DecimalMin("0") UUID id) {
+  ResponseEntity<Integer> getCountOfItem(@PathVariable @DecimalMin("0") UUID id) {
     return new ResponseEntity<>(itemService.getCountOfItem(id), HttpStatus.OK);
   }
 

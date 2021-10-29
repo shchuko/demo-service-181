@@ -1,31 +1,24 @@
 package com.itmo.microservices.shop.catalog.repository;
 
-import com.itmo.microservices.shop.catalog.CatalogTest;
+import com.itmo.microservices.shop.catalog.HardcodedValues;
 import com.itmo.microservices.shop.catalog.impl.entity.Item;
 import com.itmo.microservices.shop.catalog.impl.repository.ItemRepository;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
-import org.springframework.beans.BeanUtils;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.junit4.SpringRunner;
 
 import javax.persistence.EntityManager;
 import javax.sql.DataSource;
 
-import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-@ExtendWith(SpringExtension.class)
+@RunWith(SpringRunner.class)
 @DataJpaTest
-public class ItemRepositoryTest extends CatalogTest {
+public class ItemRepositoryTest extends HardcodedValues {
     @Autowired
     private DataSource dataSource;
     @Autowired
@@ -36,11 +29,11 @@ public class ItemRepositoryTest extends CatalogTest {
     private ItemRepository<Item> itemRepository;
 
     @Test
-    void injectedComponentsAreNotNull(){
-        assertThat(dataSource).isNotNull();
-        assertThat(jdbcTemplate).isNotNull();
-        assertThat(entityManager).isNotNull();
-        assertThat(itemRepository).isNotNull();
+    public void injectedComponentsAreNotNull(){
+        Assert.assertNotNull(dataSource);
+        Assert.assertNotNull(jdbcTemplate);
+        Assert.assertNotNull(entityManager);
+        Assert.assertNotNull(itemRepository);
     }
 
     @Test
@@ -50,7 +43,7 @@ public class ItemRepositoryTest extends CatalogTest {
         var correct = mockedItems.stream().filter(item -> item.getCount() > 0).collect(Collectors.toList());
         test.forEach(t -> t.setUuid(null));
         correct.forEach(t -> t.setUuid(null));
-        Assertions.assertEquals(correct, test);
+        Assert.assertEquals(correct, test);
     }
 
     @Test
@@ -59,6 +52,15 @@ public class ItemRepositoryTest extends CatalogTest {
         var item = itemRepository.findAll().stream().findFirst();
         var test = itemRepository.getCount(item.get().getUuid());
         var correct = mockedItem.getCount();
-        Assertions.assertEquals(correct, test);
+        Assert.assertEquals(correct, test);
+    }
+
+    @Test
+    public void whenSave_thenGenerateNewUUID(){
+        itemRepository.save(mockedItem);
+        var item = itemRepository.findAll().stream().findFirst();
+        var test = item.get().getUuid();
+        var correct = mockedItem.getUuid();
+        Assert.assertNotEquals(correct, test);
     }
 }
