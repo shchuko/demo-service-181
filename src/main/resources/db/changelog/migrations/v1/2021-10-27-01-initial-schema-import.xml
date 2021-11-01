@@ -9,12 +9,9 @@
         http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd
         http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.3.xsd">
 
-  <property name="uuid_function" value="uuid_generate_v4()" dbms="postgresql"/>
-  <property name="uuid_function" value="random_uuid()" dbms="h2"/>
-
   <changeSet id="2021-10-27-01-initial-schema-create-create-user" author="Vladislav Yaroshchuk">
     <createTable tableName="user">
-      <column name="id" type="uuid" defaultValueComputed="${uuid_function}">
+      <column name="id" type="uuid">
         <constraints primaryKey="true" nullable="false"/>
       </column>
       <column name="username" type="varchar(32)">
@@ -32,7 +29,7 @@
   <changeSet id="2021-10-27-01-initial-schema-create-create-ordertable"
     author="Vladislav Yaroshchuk">
     <createTable tableName="order_table">
-      <column name="id" type="uuid" defaultValueComputed="${uuid_function}">
+      <column name="id" type="uuid">
         <constraints primaryKey="true" nullable="false"/>
       </column>
       <column name="time_created" type="long">
@@ -83,7 +80,7 @@
   <changeSet id="2021-10-27-01-initial-schema-create-create-paymentlogrecord"
     author="Vladislav Yaroshchuk">
     <createTable tableName="payment_log_record">
-      <column name="id" type="uuid" defaultValueComputed="${uuid_function}">
+      <column name="id" type="uuid">
         <constraints primaryKey="true" nullable="false"/>
       </column>
       <column name="amount" type="int">
@@ -137,7 +134,7 @@
   <changeSet id="2021-10-27-01-initial-schema-create-create-item"
     author="Vladislav Yaroshchuk">
     <createTable tableName="item">
-      <column name="id" type="uuid" defaultValueComputed="${uuid_function}">
+      <column name="id" type="uuid">
         <constraints primaryKey="true" nullable="false"/>
       </column>
       <column name="name" type="varchar(255)">
