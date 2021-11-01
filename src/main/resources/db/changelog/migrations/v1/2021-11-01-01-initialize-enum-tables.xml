@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+        xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd
+        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd
+        http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.3.xsd">
+
+    <changeSet id="2021-11-01-01-insert-order-status-collecting" author="Vladislav Yaroshchuk">
+        <insert tableName="order_status">
+            <column name="name" value="COLLECTING"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-order-status-discard" author="Vladislav Yaroshchuk">
+        <insert tableName="order_status">
+            <column name="name" value="DISCARD"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-order-status-booked" author="Vladislav Yaroshchuk">
+        <insert tableName="order_status">
+            <column name="name" value="BOOKED"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-order-status-paid" author="Vladislav Yaroshchuk">
+        <insert tableName="order_status">
+            <column name="name" value="PAID"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-order-status-shipping" author="Vladislav Yaroshchuk">
+        <insert tableName="order_status">
+            <column name="name" value="SHIPPING"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-order-status-refund" author="Vladislav Yaroshchuk">
+        <insert tableName="order_status">
+            <column name="name" value="REFUND"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-order-status-completed" author="Vladislav Yaroshchuk">
+        <insert tableName="order_status">
+            <column name="name" value="COMPLETED"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-payment-status-failed" author="Vladislav Yaroshchuk">
+        <insert tableName="payment_status">
+            <column name="name" value="FAILED"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-payment-status-success" author="Vladislav Yaroshchuk">
+        <insert tableName="payment_status">
+            <column name="name" value="SUCCESS"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-financial-operation-type-withdraw" author="Vladislav Yaroshchuk">
+        <insert tableName="financial_operation_type">
+            <column name="name" value="WITHDRAW"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="2021-11-01-01-insert-financial-operation-type-refund" author="Vladislav Yaroshchuk">
+        <insert tableName="financial_operation_type">
+            <column name="name" value="REFUND"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>
