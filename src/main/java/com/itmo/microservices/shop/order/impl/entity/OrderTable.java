@@ -3,12 +3,7 @@ package com.itmo.microservices.shop.order.impl.entity;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
+import javax.persistence.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -21,6 +16,7 @@ import org.hibernate.Hibernate;
 public class OrderTable {
 
   @Id
+  @GeneratedValue
   private UUID id;
   private Long timeCreated;
   private Integer deliveryDuration;
