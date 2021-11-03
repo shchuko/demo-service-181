@@ -1,7 +1,7 @@
 package com.itmo.microservices.shop.user.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.itmo.microservices.shop.common.security.NoSecurityConfigurerAdapterConfig;
+import com.itmo.microservices.shop.common.test.NoWebSecurityTestCase;
 import com.itmo.microservices.shop.user.api.model.RegistrationRequest;
 import com.itmo.microservices.shop.user.api.model.UserModel;
 import com.itmo.microservices.shop.user.impl.service.DefaultUserService;
@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -27,9 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ActiveProfiles("dev")
-@SpringBootTest(classes = NoSecurityConfigurerAdapterConfig.class)
 @AutoConfigureMockMvc
-public class UserControllerTest {
+public class UserControllerTest extends NoWebSecurityTestCase {
     private final UUID uuid = UUID.randomUUID();
     private final String username = "Test";
     private final String password = "qwerty1234";
