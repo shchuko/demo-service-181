@@ -18,21 +18,4 @@ class StubNotificationService() : NotificationService {
         log.info("User ${user.username} was created & should be notified")
     }
 
-    override fun processExpiredCard() {
-
-        TODO("Not expected to be implemented according to plan")
-
-    }
-
-    override fun processPaymentApproved() {
-
-        TODO("Not yet implemented in Payment|Order service")
-
-    }
-
-    override fun processOrderDelivered() {
-
-        TODO("Not expected to be implemented according to given API")
-    }
-
 }
