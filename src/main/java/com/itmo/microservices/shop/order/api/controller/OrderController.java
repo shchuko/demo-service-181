@@ -7,6 +7,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @RestController
@@ -42,5 +45,11 @@ public class OrderController {
     @PostMapping(value = "/{order_id}/bookings")
     ResponseEntity<BookingDTO> finalizeOrder(@PathVariable UUID order_id){
         return new ResponseEntity<>(orderService.finalizeOrder(order_id), HttpStatus.OK);
+    }
+
+    @ExceptionHandler(NoSuchElementException.class)
+    public void handleNoSuchElementException(HttpServletResponse response)
+            throws IOException {
+        response.sendError(HttpStatus.NOT_FOUND.value());
     }
 }
