@@ -2,7 +2,7 @@ spring:
   application:
     name: p81
   datasource:
-    url: jdbc:postgresql://postgresql:5432/demo_db
+    url: jdbc:postgresql://postgresql:5432/p81
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
