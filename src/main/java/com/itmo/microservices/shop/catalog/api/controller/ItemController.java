@@ -3,6 +3,8 @@ package com.itmo.microservices.shop.catalog.api.controller;
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.impl.service.ItemService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
