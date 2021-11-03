@@ -22,6 +22,7 @@ public class ItemController {
     private ItemService itemService;
 
     @GetMapping()
+    @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     ResponseEntity<List<ItemDTO>> getAllItemsBasedOnAvailability(
             @RequestParam(value = "available", required = false) Boolean available) {
         if (available == null) {
@@ -35,6 +36,7 @@ public class ItemController {
     }
 
     @GetMapping("/{id}")
+    @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     ResponseEntity<Integer> getCountOfItem(@PathVariable @DecimalMin("0") UUID id)
             throws ItemNotFoundException {
         return new ResponseEntity<>(itemService.getCountOfItem(id), HttpStatus.OK);
@@ -42,6 +44,7 @@ public class ItemController {
 
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
+    @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     void updateItem(@PathVariable @DecimalMin("0") UUID id, @RequestBody ItemDTO itemDTO)
             throws ItemNotFoundException {
         itemService.updateItem(id, itemDTO);
@@ -49,13 +52,14 @@ public class ItemController {
 
     @PostMapping()
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     void addItem(@RequestBody ItemDTO item) {
         itemService.createItem(item);
     }
 
-
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
+    @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     void deleteItem(@PathVariable @DecimalMin("0") UUID id) {
         itemService.deleteItem(id);
     }
