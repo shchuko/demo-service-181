@@ -5,6 +5,3 @@ databaseChangeLog:
   - include:
       file: 2021-11-01-01-initialize-enum-tables.xml
       relativeToChangelogFile: true
-  - include:
-      file: 2021-11-02-01-create-delivery-schema.xml
-      relativeToChangelogFile: true
