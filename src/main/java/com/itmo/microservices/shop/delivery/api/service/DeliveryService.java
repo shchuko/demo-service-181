@@ -1,20 +1,24 @@
 package com.itmo.microservices.shop.delivery.api.service;
 
-import com.itmo.microservices.shop.delivery.api.model.DeliveryInfoModel;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface DeliveryService {
     /**
-     * @param num - number of slots we santed to get
+     * Get limited number of available delivery slots
+     *
+     * @param number Number of slots we want to get
+     * @return List of delivery slots limited by number
      */
-    List<Integer> getDeliverySlots(int num);
+    @NotNull
+    List<Integer> getDeliverySlots(int number);
 
+    /**
+     * Get available delivery slots
+     *
+     * @return List of available delivery slots
+     */
+    @NotNull
     List<Integer> getDeliverySlots();
-
-
-    DeliveryInfoModel setTimeSlot(DeliveryInfoModel deliveryInfoModel);
-
-    DeliveryInfoModel getDeliveryInfo(UUID orderId);
 }
