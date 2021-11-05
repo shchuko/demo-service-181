@@ -1,7 +1,10 @@
 databaseChangeLog:
   - include:
-      file: 2021-10-27-01-initial-schema-import.xml
+      file: 2021-10-27-01-initial-schema-tables-create.xml
       relativeToChangelogFile: true
   - include:
-      file: 2021-11-01-01-initialize-enum-tables.xml
+      file: 2021-10-27-02-initial-schema-foreign-keys-create.xml
+      relativeToChangelogFile: true
+  - include:
+      file: 2021-11-01-01-fill-enum-tables.xml
       relativeToChangelogFile: true
