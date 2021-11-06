@@ -22,13 +22,14 @@ class JwtTokenManager(private val properties: SecurityProperties) {
     fun readAccessToken(token: String): UserAuth {
         val uuid = UUID.fromString(getIdFromToken(token))
         val username = getUsernameFromToken(token)
+        val email = getEmailFromToken(token)
         val type = getClaimFromToken(token) { it["type"] }
         if (TokenType.ACCESS.name.lowercase(Locale.getDefault()) != type)
             throw IllegalArgumentException("Token is not of ACCESS type")
         val roles = mutableListOf<SimpleGrantedAuthority>()
         roles.add(SimpleGrantedAuthority("ACCESS"))
         getRolesFromToken(token).forEach { role -> roles.add(SimpleGrantedAuthority(role)) }
-        return UserAuth(uuid, username, token, roles)
+        return UserAuth(uuid, username, token, email, roles)
     }
 
     /**
@@ -39,10 +40,11 @@ class JwtTokenManager(private val properties: SecurityProperties) {
     fun readRefreshToken(token: String): UserAuth {
         val uuid = UUID.fromString(getIdFromToken(token))
         val username = getUsernameFromToken(token)
+        val email = getEmailFromToken(token)
         val type = getClaimFromToken(token) { it["type"] }
         if (TokenType.REFRESH.name.lowercase(Locale.getDefault()) != type)
             throw IllegalArgumentException("Token is not of REFRESH type")
-        return UserAuth(uuid, username, token, mutableListOf(SimpleGrantedAuthority("REFRESH")))
+        return UserAuth(uuid, username, token, email, mutableListOf(SimpleGrantedAuthority("REFRESH")))
     }
 
     fun <T> getClaimFromToken(token: String, claimsResolver: (Claims) -> T): T {
@@ -54,7 +56,15 @@ class JwtTokenManager(private val properties: SecurityProperties) {
         return getClaimFromToken(token) { it.subject }
     }
 
+    //retrieve uuid from jwt token
     fun getIdFromToken(token: String): String = getClaimFromToken(token) { it.id }
+
+    //retrieve uuid from jwt token
+    fun getEmailFromToken(token: String): String {
+        return getClaimFromToken(token) { claims ->
+            ((claims.get("email", String::class.java) ?: ""))
+        }
+    }
 
     //retrieve roles from jwt token
     fun getRolesFromToken(token: String): List<String> {
@@ -111,6 +121,7 @@ class JwtTokenManager(private val properties: SecurityProperties) {
             .setIssuedAt(Date())
             .setExpiration(Date.from(Instant.now().plus(tokenTTL)))
             .claim("roles", userAuth.authorities.map { it.authority })
+            .claim("email", userAuth.email)
             .signWith(SignatureAlgorithm.HS512, properties.secret)
             .compact()
 
