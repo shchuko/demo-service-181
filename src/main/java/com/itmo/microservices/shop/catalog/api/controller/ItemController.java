@@ -28,12 +28,12 @@ public class ItemController {
     ResponseEntity<List<ItemDTO>> getAllItemsBasedOnAvailability(
             @RequestParam(value = "available", required = false) Boolean available) {
         if (available == null) {
-            return new ResponseEntity<List<ItemDTO>>(itemService.getItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.getItems(), HttpStatus.OK);
         }
         if (available) {
-            return new ResponseEntity<List<ItemDTO>>(itemService.getAvailableItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.getAvailableItems(), HttpStatus.OK);
         } else {
-            return new ResponseEntity<List<ItemDTO>>(itemService.getNotAvailableItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.getUnavailableItems(), HttpStatus.OK);
         }
     }
 

@@ -26,7 +26,7 @@ class ItemService(private val itemRepository: ItemRepository) :
             .map(ItemToItemDTOMapper::map)
             .collect(Collectors.toList())
 
-    override fun getNotAvailableItems(): MutableList<ItemDTO> =
+    override fun getUnavailableItems(): MutableList<ItemDTO> =
         itemRepository.findAllByAmountLessThanEqual(0)
             .stream()
             .map(ItemToItemDTOMapper::map)

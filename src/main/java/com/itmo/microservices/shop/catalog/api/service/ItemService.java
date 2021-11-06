@@ -10,7 +10,7 @@ public interface ItemService {
 
     List<ItemDTO> getAvailableItems();
 
-    List<ItemDTO> getNotAvailableItems();
+    List<ItemDTO> getUnavailableItems();
 
     int getCountOfItem(UUID uuid);
 

@@ -64,7 +64,7 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
 
     @Test
     public void whenGet_ParamAvailableFalse_thenReturnNotAvailableItems() throws Exception {
-        Mockito.when(itemService.getNotAvailableItems()).thenReturn(notAvailableItems);
+        Mockito.when(itemService.getUnavailableItems()).thenReturn(notAvailableItems);
         Mockito.when(itemService.getItems()).thenReturn(hardcodedValues.mockedItemsDto);
 
         final String expectedResponseContent = mapper.writeValueAsString(notAvailableItems);
@@ -75,7 +75,7 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(expectedResponseContent));
-        Mockito.verify(itemService).getNotAvailableItems();
+        Mockito.verify(itemService).getUnavailableItems();
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
