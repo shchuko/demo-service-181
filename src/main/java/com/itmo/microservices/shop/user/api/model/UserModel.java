@@ -11,20 +11,22 @@ public class UserModel {
     private UUID uuid;
     private String username;
     private Boolean isAdmin;
+    private String email;
 
     @JsonIgnore
     private String password;
 
-    public UserModel(UUID uuid, String username, String password, Boolean isAdmin) {
+    public UserModel(UUID uuid, String username, String password, String email, Boolean isAdmin) {
         this.uuid = uuid;
         this.username = username;
-        this.isAdmin = isAdmin;
         this.password = password;
+        this.email = email;
+        this.isAdmin = isAdmin;
     }
 
     public UserAuth userDetails() {
         SimpleGrantedAuthority role = isAdmin ? new SimpleGrantedAuthority("ADMIN") : new SimpleGrantedAuthority("USER");
-        return new UserAuth(uuid, username, password, Collections.singleton(role));
+        return new UserAuth(uuid, username, password, email, Collections.singleton(role));
     }
 
     public UUID getUuid() {
@@ -57,5 +59,13 @@ public class UserModel {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

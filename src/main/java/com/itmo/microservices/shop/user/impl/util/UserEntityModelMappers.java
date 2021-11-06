@@ -8,13 +8,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 public class UserEntityModelMappers {
     public static UserModel toModel(User user) {
-        return new UserModel(user.getId(), user.getUsername(), user.getPasswordHash(), user.getIsAdmin());
+        return new UserModel(user.getId(), user.getUsername(), user.getPasswordHash(), user.getEmail(), user.getIsAdmin());
     }
 
     public static User toEntity(RegistrationRequest request, PasswordEncoder passwordEncoder) {
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setEmail(request.getEmail());
         return user;
     }
 }
