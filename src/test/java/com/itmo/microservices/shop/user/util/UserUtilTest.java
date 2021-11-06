@@ -18,6 +18,7 @@ public class UserUtilTest {
     private final UUID uuid = UUID.randomUUID();
     private final String username = "Test";
     private final String password = "qwerty";
+    private final String email = "test@example.com";
     private final Boolean isAdmin = false;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -27,6 +28,7 @@ public class UserUtilTest {
 
         assertEquals(username, except.getUsername());
         assertTrue(passwordEncoder.matches(password, except.getPasswordHash()));
+        assertEquals(email, except.getEmail());
     }
 
     @Test
@@ -36,6 +38,7 @@ public class UserUtilTest {
         assertEquals(uuid, except.getUuid());
         assertEquals(username, except.getUsername());
         assertTrue(passwordEncoder.matches(password, except.getPassword()));
+        assertEquals(email, except.getEmail());
         assertEquals(isAdmin, except.getAdmin());
     }
 
@@ -45,11 +48,12 @@ public class UserUtilTest {
         user.setId(uuid);
         user.setUsername(username);
         user.setPasswordHash(passwordEncoder.encode(password));
+        user.setEmail(email);
         user.setIsAdmin(isAdmin);
         return user;
     }
 
     private RegistrationRequest createDefaultRequest() {
-        return new RegistrationRequest(username, password);
+        return new RegistrationRequest(username, password, email);
     }
 }
