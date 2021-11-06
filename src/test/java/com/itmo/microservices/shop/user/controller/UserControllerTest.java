@@ -31,6 +31,7 @@ public class UserControllerTest extends NoWebSecurityTestCase {
     private final UUID uuid = UUID.randomUUID();
     private final String username = "Test";
     private final String password = "qwerty1234";
+    private final String email = "test@123.ru";
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private final static ObjectMapper mapper = new ObjectMapper();
@@ -45,7 +46,7 @@ public class UserControllerTest extends NoWebSecurityTestCase {
     void whenPostCreateUser_thenDoNothing() throws Exception {
         Mockito.doNothing().when(userService).registerUser(isA(RegistrationRequest.class));
 
-        RegistrationRequest request = new RegistrationRequest(username, password);
+        RegistrationRequest request = new RegistrationRequest(username, password, email);
 
         final String expectedResponseContent = "";
 
@@ -76,6 +77,6 @@ public class UserControllerTest extends NoWebSecurityTestCase {
     }
 
     private UserModel createDefaultUserModel() {
-        return new UserModel(uuid, username, passwordEncoder.encode(password), false);
+        return new UserModel(uuid, username, passwordEncoder.encode(password), email, false);
     }
 }
