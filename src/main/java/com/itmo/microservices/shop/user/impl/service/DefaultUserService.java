@@ -35,10 +35,9 @@ public class DefaultUserService implements UserService {
 
     @Override
     public void registerUser(RegistrationRequest request) {
-        if (userRepository.findByUsername(request.getUsername()) != null)
+        if (userRepository.existsUserByUsername(request.getUsername()) || userRepository.existsUserByEmail(request.getEmail()))
             throw new UserExistsException("User already exists");
         User user = userRepository.save(UserEntityModelMappers.toEntity(request, passwordEncoder));
-        System.out.println(eventLogger);
         eventBus.post(new UserCreatedEvent(UserEntityModelMappers.toModel(user)));
         if (eventLogger != null)
             eventLogger.info(UserServiceNotableEvents.I_USER_CREATED, user.getUsername());
