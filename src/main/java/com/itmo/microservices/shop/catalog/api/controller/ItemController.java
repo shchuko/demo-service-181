@@ -71,5 +71,11 @@ public class ItemController {
             throws IOException {
         response.sendError(HttpStatus.NOT_FOUND.value());
     }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public void handleIllegalArgumentException(HttpServletResponse response)
+            throws IOException {
+        response.sendError(HttpStatus.BAD_REQUEST.value());
+    }
 }
 
