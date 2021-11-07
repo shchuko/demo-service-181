@@ -148,14 +148,17 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
     public void whenPut_Id_thenResponseBodyIsEmptyAndStatusIsOk() throws Exception {
         Mockito.doNothing().when(itemService).updateItem(isA(UUID.class), isA(ItemDTO.class));
 
+        final String requestBody = mapper.writeValueAsString(hardcodedValues.mockedItemDTO);
         final String expectedResponseContent = "";
 
-        this.mockMvc.perform(delete("/items/" + hardcodedValues.mockedItem.getId()))
+        this.mockMvc.perform(put("/items/{id}", hardcodedValues.mockedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().string(expectedResponseContent));
 
-        Mockito.verify(itemService).deleteItem(Mockito.any(UUID.class));
+        Mockito.verify(itemService).updateItem(Mockito.any(UUID.class), Mockito.any(ItemDTO.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
@@ -165,7 +168,7 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
 
         final String expectedResponseContent = "";
 
-        this.mockMvc.perform(delete("/items/" + hardcodedValues.mockedItem.getId()))
+        this.mockMvc.perform(delete("/items/{id}",hardcodedValues.mockedItem.getId()))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().string(expectedResponseContent));
