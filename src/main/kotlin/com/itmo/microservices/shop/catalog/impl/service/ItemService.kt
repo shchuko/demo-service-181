@@ -106,9 +106,26 @@ class ItemService(private val itemRepository: ItemRepository) : ItemService {
         }
     }
 
-        item.apply {
-            BeanUtils.copyProperties(itemDTO, this, "uuid")
-            itemRepository.save(this)
+    @Throws(IllegalArgumentException::class)
+    override fun increaseItemAmount(diff: Int, itemUuid: UUID): Boolean {
+        lock.withLock {
+            itemRepository.findById(itemUuid).apply {
+                return when {
+                    isEmpty -> {
+                        logger.error(ItemServiceNotableEvents.E_ITEM_WITH_UUID_NOT_FOUND, itemUuid)
+                        throw ItemNotFoundException("No value with $itemUuid exists")
+                    }
+                    (get().amount + diff < 0) -> {
+                        false
+                    }
+                    else -> {
+                        get().amount += diff
+                        logger.info(ItemServiceNotableEvents.I_UPDATE_ITEM_REQUEST, get())
+                        itemRepository.save(get())
+                        true
+                    }
+                }
+            }
         }
     }
 }
