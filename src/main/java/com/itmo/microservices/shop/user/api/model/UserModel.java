@@ -2,9 +2,10 @@ package com.itmo.microservices.shop.user.api.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.itmo.microservices.shop.user.impl.userdetails.UserAuth;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.UUID;
 
 public class UserModel {
@@ -25,8 +26,11 @@ public class UserModel {
     }
 
     public UserAuth userDetails() {
-        SimpleGrantedAuthority role = isAdmin ? new SimpleGrantedAuthority("ADMIN") : new SimpleGrantedAuthority("USER");
-        return new UserAuth(uuid, username, password, email, Collections.singleton(role));
+        ArrayList<GrantedAuthority> authorities = new ArrayList<>();
+        if (isAdmin) {
+            authorities.add(new SimpleGrantedAuthority("ADMIN"));
+        }
+        return new UserAuth(uuid, username, password, email, authorities);
     }
 
     public UUID getUuid() {
