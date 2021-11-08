@@ -17,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -45,9 +46,10 @@ public class DefaultUserService implements UserService {
 
     @Override
     public UserModel getUserByID(UUID uuid) {
-        if (userRepository.findById(uuid).isEmpty())
+        Optional<User> user = userRepository.findById(uuid);
+        if (user.isEmpty())
             throw new NotFoundException("User " + uuid + " not found");
-        return UserEntityModelMappers.toModel(userRepository.findById(uuid).get());
+        return UserEntityModelMappers.toModel(user.get());
     }
 
     @Override
