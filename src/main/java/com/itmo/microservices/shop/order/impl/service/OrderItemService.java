@@ -1,5 +1,6 @@
 package com.itmo.microservices.shop.order.impl.service;
 
+import com.google.common.eventbus.EventBus;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
@@ -13,6 +14,9 @@ import com.itmo.microservices.shop.order.impl.mapper.OrderTableToOrderDTO;
 import com.itmo.microservices.shop.order.impl.repository.IOrderItemRepository;
 import com.itmo.microservices.shop.order.impl.repository.IOrderStatusRepository;
 import com.itmo.microservices.shop.order.impl.repository.IOrderTableRepository;
+import com.itmo.microservices.shop.order.messaging.OrderCreatedEvent;
+import com.itmo.microservices.shop.order.messaging.OrderFinalizedEvent;
+import kotlin.Suppress;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -22,19 +26,23 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@Suppress(names = "UnstableApiUsage")
 public class OrderItemService implements IOrderService {
     private final IOrderItemRepository itemRepository;
     private final IOrderStatusRepository statusRepository;
     private final IOrderTableRepository tableRepository;
     @InjectEventLogger
     private EventLogger eventLogger;
+    private final EventBus eventBus;
 
     public OrderItemService(IOrderItemRepository itemRepository,
                             IOrderStatusRepository statusRepository,
-                            IOrderTableRepository tableRepository) {
+                            IOrderTableRepository tableRepository,
+                            EventBus eventBus) {
         this.itemRepository = itemRepository;
         this.statusRepository = statusRepository;
         this.tableRepository = tableRepository;
+        this.eventBus = eventBus;
     }
 
     @Override
@@ -56,7 +64,10 @@ public class OrderItemService implements IOrderService {
         if (eventLogger != null) {
             eventLogger.info(OrderServiceNotableEvent.I_ORDER_CREATED, order.getId());
         }
-        return OrderTableToOrderDTO.toDTO(order);
+
+        OrderDTO orderDTO = OrderTableToOrderDTO.toDTO(order);
+        eventBus.post(new OrderCreatedEvent(orderDTO));
+        return orderDTO;
     }
 
     @Override
@@ -117,6 +128,7 @@ public class OrderItemService implements IOrderService {
         if (eventLogger != null) {
             eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
         }
+        eventBus.post(new OrderFinalizedEvent(OrderTableToOrderDTO.toDTO(order)));
         return bookingDTO; // mock BookingDTO
     }
 
