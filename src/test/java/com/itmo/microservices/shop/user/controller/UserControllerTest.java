@@ -31,7 +31,7 @@ public class UserControllerTest extends NoWebSecurityTestCase {
     private final UUID uuid = UUID.randomUUID();
     private final String username = "Test";
     private final String password = "qwerty1234";
-    private final String email = "test@example.com";
+    private final String email = "test@123.ru";
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private final static ObjectMapper mapper = new ObjectMapper();
