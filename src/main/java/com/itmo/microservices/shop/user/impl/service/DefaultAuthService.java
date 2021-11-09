@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 public class DefaultAuthService implements AuthService {
     private final UserService userService;
     private final JwtTokenManager tokenManager;
-    private PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
 
     public DefaultAuthService(UserService userService, JwtTokenManager tokenManager, PasswordEncoder passwordEncoder) {
         this.userService = userService;
@@ -36,7 +36,7 @@ public class DefaultAuthService implements AuthService {
 
         String accessToken = tokenManager.generateToken(user.userDetails());
         String refreshToken = tokenManager.generateRefreshToken(user.userDetails());
-        return new AuthenticationResult(accessToken, refreshToken);
+        return new AuthenticationResult(accessToken, refreshToken, user.getUuid());
     }
 
     @Override
@@ -44,6 +44,6 @@ public class DefaultAuthService implements AuthService {
         String refreshToken = (String) authentication.getCredentials();
         UserAuth principal = (UserAuth) authentication.getPrincipal();
         String accessToken = tokenManager.generateToken(principal);
-        return new AuthenticationResult(accessToken, refreshToken);
+        return new AuthenticationResult(accessToken, refreshToken, principal.getUuid());
     }
 }
