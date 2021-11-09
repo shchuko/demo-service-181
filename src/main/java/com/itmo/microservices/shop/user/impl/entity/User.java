@@ -24,7 +24,6 @@ public class User {
     private UUID id;
     private String username;
     private String passwordHash;
-    private String email;
     private Boolean isAdmin = false;
 
     @Override
