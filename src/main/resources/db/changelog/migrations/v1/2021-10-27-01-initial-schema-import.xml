@@ -20,9 +20,6 @@
       <column name="password_hash" type="varchar(255)">
         <constraints nullable="false"/>
       </column>
-      <column name="email" type="varchar(255)">
-        <constraints nullable="false" unique="true"/>
-      </column>
       <column name="is_admin" type="boolean" defaultValue="false">
         <constraints nullable="false"/>
       </column>
