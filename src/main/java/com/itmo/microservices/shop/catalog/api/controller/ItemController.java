@@ -28,12 +28,12 @@ public class ItemController {
     ResponseEntity<List<ItemDTO>> getAllItemsBasedOnAvailability(
             @RequestParam(value = "available", required = false) Boolean available) {
         if (available == null) {
-            return new ResponseEntity<List<ItemDTO>>(itemService.getItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.getItems(), HttpStatus.OK);
         }
         if (available) {
-            return new ResponseEntity<List<ItemDTO>>(itemService.getAvailableItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.getAvailableItems(), HttpStatus.OK);
         } else {
-            return new ResponseEntity<List<ItemDTO>>(itemService.getNotAvailableItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.getUnavailableItems(), HttpStatus.OK);
         }
     }
 
@@ -70,6 +70,12 @@ public class ItemController {
     public void handleItemNotFoundException(HttpServletResponse response)
             throws IOException {
         response.sendError(HttpStatus.NOT_FOUND.value());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public void handleIllegalArgumentException(HttpServletResponse response)
+            throws IOException {
+        response.sendError(HttpStatus.BAD_REQUEST.value());
     }
 }
 

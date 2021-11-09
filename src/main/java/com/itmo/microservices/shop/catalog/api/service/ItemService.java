@@ -10,7 +10,7 @@ public interface ItemService {
 
     List<ItemDTO> getAvailableItems();
 
-    List<ItemDTO> getNotAvailableItems();
+    List<ItemDTO> getUnavailableItems();
 
     int getCountOfItem(UUID uuid);
 
@@ -19,4 +19,6 @@ public interface ItemService {
     void createItem(ItemDTO item);
 
     void updateItem(UUID uuid, ItemDTO itemDTO);
+
+    boolean increaseItemAmount(int diff, UUID itemUuid);
 }
