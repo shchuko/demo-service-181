@@ -29,7 +29,7 @@
       <column name="id" type="uuid">
         <constraints primaryKey="true" nullable="false"/>
       </column>
-      <column name="time_created" type="long">
+      <column name="time_created" type="bigint">
         <constraints nullable="false"/>
       </column>
       <column name="delivery_duration" type="int">
@@ -74,7 +74,7 @@
       <column name="amount" type="int">
         <constraints nullable="false"/>
       </column>
-      <column name="timestamp" type="long">
+      <column name="timestamp" type="bigint">
         <constraints nullable="false"/>
       </column>
       <column name="order_id" type="uuid">
