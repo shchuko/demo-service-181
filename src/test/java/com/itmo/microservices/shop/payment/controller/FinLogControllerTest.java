@@ -1,7 +1,8 @@
 package com.itmo.microservices.shop.payment.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.itmo.microservices.shop.common.test.NoWebSecurityTestCase;
+import com.itmo.microservices.shop.common.security.WithMockCustomUser;
+import com.itmo.microservices.shop.common.test.DefaultSecurityTestCase;
 import com.itmo.microservices.shop.payment.api.controller.FinLogController;
 import com.itmo.microservices.shop.payment.api.model.UserAccountFinancialLogRecordDto;
 import com.itmo.microservices.shop.payment.common.HardcodedValues;
@@ -25,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
-public class FinLogControllerTest extends NoWebSecurityTestCase {
+public class FinLogControllerTest extends DefaultSecurityTestCase {
 
     @Autowired
     private MockMvc mockMvc;
@@ -41,6 +42,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
     private final static ObjectMapper mapper = new ObjectMapper();
 
     @Test
+    @WithMockCustomUser(uuid="e99b7ee6-ee5e-4cb9-9cdd-33fe50765e6e")
     public void whenGetUserFinancialLogWithOrderIdReturnListOfUserAccountFinancialLogRecordDto() throws Exception {
         UUID userId = hardcodedValues.userIds.get(5);
         UUID orderId = hardcodedValues.paymentLogRecords.stream()
@@ -64,6 +66,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
 
 
     @Test
+    @WithMockCustomUser(uuid="e99b7ee6-ee5e-4cb9-9cdd-33fe50765e6e")
     public void whenGetUserFinancialLogWithoutOrderIdReturnListOfUserAccountFinancialLogRecordDto() throws Exception {
         UUID userId = hardcodedValues.userIds.get(5);
 
@@ -85,6 +88,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
 
 
     @Test
+    @WithMockCustomUser(uuid="e99b7ee6-ee5e-4cb9-9cdd-33fe50765e6e")
     public void whenGetUserFinancialLogWithOrderIdReturnPaymentInfoNotFoundException() throws Exception {
         UUID orderId = UUID.randomUUID();
 
@@ -102,6 +106,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
     }
 
     @Test
+    @WithMockCustomUser(uuid="e99b7ee6-ee5e-4cb9-9cdd-33fe50765e6e")
     public void whenGetUserFinancialLogWithoutOrderIdReturnPaymentInfoNotFoundException() throws Exception {
 
         Mockito.when(service.getUserFinanceLog(Mockito.any(UUID.class)))
