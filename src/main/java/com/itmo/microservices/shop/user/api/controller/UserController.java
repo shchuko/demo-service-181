@@ -27,8 +27,8 @@ public class UserController {
                     @ApiResponse(responseCode = "400", description = "Bad request", content = {@Content})
             }
     )
-    void register(@RequestBody RegistrationRequest request) {
-        userService.registerUser(request);
+    UserModel register(@RequestBody RegistrationRequest request) {
+        return userService.registerUser(request);
     }
 
     @GetMapping("{user_id}")

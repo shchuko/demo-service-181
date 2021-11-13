@@ -1,6 +1,7 @@
 package com.itmo.microservices.shop.user.api.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.itmo.microservices.shop.user.impl.userdetails.UserAuth;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -9,8 +10,13 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 public class UserModel {
+    @JsonProperty("id")
     private UUID uuid;
+
+    @JsonProperty("name")
     private String username;
+
+    @JsonIgnore
     private Boolean isAdmin;
 
     @JsonIgnore

@@ -42,12 +42,13 @@ public class UserControllerTest extends NoWebSecurityTestCase {
     private MockMvc mockMvc;
 
     @Test
-    void whenPostCreateUser_thenDoNothing() throws Exception {
-        Mockito.doNothing().when(userService).registerUser(isA(RegistrationRequest.class));
+    void whenPostCreateUser_thenReturnUserModel() throws Exception {
+        UserModel model = new UserModel(UUID.randomUUID(), username, password, false);
+        Mockito.doReturn(model).when(userService).registerUser(isA(RegistrationRequest.class));
 
         RegistrationRequest request = new RegistrationRequest(username, password);
 
-        final String expectedResponseContent = "";
+        final String expectedResponseContent = mapper.writeValueAsString(model);
 
         this.mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)

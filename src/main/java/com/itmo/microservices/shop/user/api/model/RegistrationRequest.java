@@ -1,7 +1,12 @@
 package com.itmo.microservices.shop.user.api.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class RegistrationRequest {
+    @JsonProperty("name")
     private String username;
+
+    @JsonProperty("password")
     private String password;
 
     public RegistrationRequest(String username, String password) {
