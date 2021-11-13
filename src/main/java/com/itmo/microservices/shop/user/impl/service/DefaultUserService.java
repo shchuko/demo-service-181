@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@SuppressWarnings("UnstableApiUsage")
 public class DefaultUserService implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -35,7 +36,7 @@ public class DefaultUserService implements UserService {
     }
 
     @Override
-    public void registerUser(RegistrationRequest request) {
+    public UserModel registerUser(RegistrationRequest request) {
         if (userRepository.findByUsername(request.getUsername()) != null)
             throw new UserExistsException("User already exists");
         User user = userRepository.save(UserEntityModelMappers.toEntity(request, passwordEncoder));
@@ -43,6 +44,8 @@ public class DefaultUserService implements UserService {
         eventBus.post(new UserCreatedEvent(UserEntityModelMappers.toModel(user)));
         if (eventLogger != null)
             eventLogger.info(UserServiceNotableEvents.I_USER_CREATED, user.getUsername());
+
+        return UserEntityModelMappers.toModel(user);
     }
 
     @Override

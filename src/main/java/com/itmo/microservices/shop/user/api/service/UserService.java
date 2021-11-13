@@ -6,7 +6,7 @@ import com.itmo.microservices.shop.user.api.model.UserModel;
 import java.util.UUID;
 
 public interface UserService {
-    void registerUser(RegistrationRequest request);
+    UserModel registerUser(RegistrationRequest request);
 
     UserModel getUserByID(UUID uuid);
 
