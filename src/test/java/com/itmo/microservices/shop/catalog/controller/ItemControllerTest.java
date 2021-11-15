@@ -45,6 +45,7 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
     private final List<ItemDTO> notAvailableItems = Collections.unmodifiableList(hardcodedValues.mockedItemsDto.stream()
             .filter(item -> item.getAmount() <= 0).collect(Collectors.toList()));
 
+    //region getAllItemsBasedOnAvailability
     @Test
     public void whenGet_ParamAvailableTrue_thenReturnItemsWithCountMoreThanZero() throws Exception {
         Mockito.when(itemService.getAvailableItems()).thenReturn(availableItems);
@@ -95,7 +96,9 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
         Mockito.verify(itemService).getItems();
         Mockito.verifyNoMoreInteractions(itemService);
     }
+    //endregion
 
+    //region addItem
     @Test
     public void whenPost_thenResponseBodyIsEmptyAndStatusIsCreated() throws Exception {
         Mockito.doNothing().when(itemService).createItem(isA(ItemDTO.class));
@@ -114,14 +117,16 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
         Mockito.verify(itemService).createItem(Mockito.any(ItemDTO.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
+    //endregion
 
+    //region getCountOfItem
     @Test
     public void whenGet_Id_ItemExisted_thenReturnCountOfItem() throws Exception {
         Mockito.doReturn(hardcodedValues.mockedItem.getAmount()).when(itemService).getCountOfItem(isA(UUID.class));
 
         final String expectedResponseContent = hardcodedValues.mockedItem.getAmount().toString();
 
-        this.mockMvc.perform(get("/items/" + hardcodedValues.mockedItem.getId()))
+        this.mockMvc.perform(get("/items/{id}", UUID.randomUUID()))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -133,32 +138,49 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
 
     @Test
     public void whenGet_Id_ItemNotExisted_thenThrowItemNotFoundException() throws Exception {
-        Mockito.when(itemService.getCountOfItem(hardcodedValues.mockedUUID))
+        Mockito.when(itemService.getCountOfItem(Mockito.any(UUID.class)))
                 .thenThrow(ItemNotFoundException.class);
 
-        this.mockMvc.perform(get("/items/" + hardcodedValues.mockedItem.getId()))
+        this.mockMvc.perform(get("/items/{id}", UUID.randomUUID()))
                 .andDo(print())
                 .andExpect(status().isNotFound());
 
         Mockito.verify(itemService).getCountOfItem(Mockito.any(UUID.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
+    //endregion
 
+    //region updateItem
     @Test
     public void whenPut_Id_thenResponseBodyIsEmptyAndStatusIsOk() throws Exception {
         Mockito.doNothing().when(itemService).updateItem(isA(UUID.class), isA(ItemDTO.class));
 
-        final String expectedResponseContent = "";
+        final String requestedBodyContent = mapper.writeValueAsString(hardcodedValues.mockedItemDTO);
 
-        this.mockMvc.perform(delete("/items/" + hardcodedValues.mockedItem.getId()))
+        this.mockMvc.perform(put("/items/{id}", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestedBodyContent))
                 .andDo(print())
-                .andExpect(status().isOk())
-                .andExpect(content().string(expectedResponseContent));
+                .andExpect(status().isOk());
 
-        Mockito.verify(itemService).deleteItem(Mockito.any(UUID.class));
+        Mockito.verify(itemService).updateItem(Mockito.any(UUID.class), Mockito.any(ItemDTO.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
+    @Test
+    public void whenPut_NotExistedId_thenReturnStatusBadRequest() throws Exception {
+        Mockito.doThrow(ItemNotFoundException.class).when(itemService)
+                .updateItem(isA(UUID.class), isA(ItemDTO.class));
+
+        this.mockMvc.perform(put("/items/{id}", UUID.randomUUID()))
+                .andDo(print())
+                .andExpect(status().isBadRequest());
+
+        Mockito.verifyNoInteractions(itemService);
+    }
+    //endregion
+
+    //region deleteItem
     @Test
     public void whenDelete_Id_thenResponseBodyIsEmptyAndStatusIsOk() throws Exception {
         Mockito.doNothing().when(itemService).deleteItem(isA(UUID.class));
@@ -174,4 +196,19 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
+    @Test
+    public void whenDelete_NotExistedId_thenResponseBodyIsEmptyAndStatusIsOk() throws Exception {
+        Mockito.doNothing().when(itemService).deleteItem(isA(UUID.class));
+
+        final String expectedResponseContent = "";
+
+        this.mockMvc.perform(delete("/items/" + hardcodedValues.mockedItem.getId()))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(content().string(expectedResponseContent));
+
+        Mockito.verify(itemService).deleteItem(Mockito.any(UUID.class));
+        Mockito.verifyNoMoreInteractions(itemService);
+    }
+    //endregion
 }
