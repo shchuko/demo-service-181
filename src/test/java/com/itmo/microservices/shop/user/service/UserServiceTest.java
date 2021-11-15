@@ -65,7 +65,7 @@ public class UserServiceTest {
         assertEquals(uuid, userModel.getUuid());
         assertEquals(username, userModel.getUsername());
         assertTrue(passwordEncoder.matches(password, userModel.getPassword()));
-        assertEquals(isAdmin, userModel.getAdmin());
+        assertEquals(isAdmin, userModel.isAdmin());
     }
 
     @Test
@@ -80,7 +80,7 @@ public class UserServiceTest {
         assertEquals(uuid, userModel.getUuid());
         assertEquals(username, userModel.getUsername());
         assertTrue(passwordEncoder.matches(password, userModel.getPassword()));
-        assertEquals(isAdmin, userModel.getAdmin());
+        assertEquals(isAdmin, userModel.isAdmin());
     }
 
     private User createDefaultUser() {
