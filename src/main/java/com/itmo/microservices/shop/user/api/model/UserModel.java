@@ -17,21 +17,21 @@ public class UserModel {
     private String username;
 
     @JsonIgnore
-    private Boolean isAdmin;
+    private Boolean admin;
 
     @JsonIgnore
     private String password;
 
-    public UserModel(UUID uuid, String username, String password, Boolean isAdmin) {
+    public UserModel(UUID uuid, String username, String password, Boolean admin) {
         this.uuid = uuid;
         this.username = username;
-        this.isAdmin = isAdmin;
+        this.admin = admin;
         this.password = password;
     }
 
     public UserAuth userDetails() {
         ArrayList<GrantedAuthority> authorities = new ArrayList<>();
-        if (isAdmin) {
+        if (admin) {
             authorities.add(new SimpleGrantedAuthority("ADMIN"));
         }
         return new UserAuth(uuid, username, password, authorities);
@@ -53,12 +53,12 @@ public class UserModel {
         this.username = username;
     }
 
-    public Boolean getAdmin() {
-        return isAdmin;
+    public Boolean isAdmin() {
+        return admin;
     }
 
     public void setAdmin(Boolean admin) {
-        isAdmin = admin;
+        this.admin = admin;
     }
 
     public String getPassword() {

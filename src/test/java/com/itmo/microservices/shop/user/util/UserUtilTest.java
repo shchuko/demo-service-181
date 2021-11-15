@@ -36,7 +36,7 @@ public class UserUtilTest {
         assertEquals(uuid, except.getUuid());
         assertEquals(username, except.getUsername());
         assertTrue(passwordEncoder.matches(password, except.getPassword()));
-        assertEquals(isAdmin, except.getAdmin());
+        assertEquals(isAdmin, except.isAdmin());
     }
 
 
