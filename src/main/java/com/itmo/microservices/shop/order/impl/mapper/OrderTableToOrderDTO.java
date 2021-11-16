@@ -5,6 +5,7 @@ import com.itmo.microservices.shop.order.api.model.OrderItemDTO;
 import com.itmo.microservices.shop.order.impl.entity.OrderItem;
 import com.itmo.microservices.shop.order.impl.entity.OrderTable;
 
+import java.util.Collections;
 import java.util.HashMap;
 
 public class OrderTableToOrderDTO {
@@ -24,6 +25,7 @@ public class OrderTableToOrderDTO {
             }
         }
         orderDTO.setItemsMap(orderItems);
+        orderDTO.setPaymentHistory(Collections.emptyList()); // mock
         return orderDTO;
     }
 }
