@@ -37,10 +37,12 @@ public class DefaultUserService implements UserService {
 
     @Override
     public UserModel registerUser(RegistrationRequest request) {
-        if (userRepository.findByUsername(request.getUsername()) != null)
+        if (userRepository.existsUserByUsername(request.getUsername())) {
+            if (eventLogger != null)
+                eventLogger.error(UserServiceNotableEvents.E_USER_ALREADY_CREATED, request.getUsername());
             throw new UserExistsException("User already exists");
+        }
         User user = userRepository.save(UserEntityModelMappers.toEntity(request, passwordEncoder));
-        System.out.println(eventLogger);
         eventBus.post(new UserCreatedEvent(UserEntityModelMappers.toModel(user)));
         if (eventLogger != null)
             eventLogger.info(UserServiceNotableEvents.I_USER_CREATED, user.getUsername());
@@ -51,16 +53,26 @@ public class DefaultUserService implements UserService {
     @Override
     public UserModel getUserByID(UUID uuid) {
         Optional<User> user = userRepository.findById(uuid);
-        if (user.isEmpty())
+        if (user.isEmpty()) {
+            if (eventLogger != null)
+                eventLogger.error(UserServiceNotableEvents.E_USER_NOT_FOUND_BY_UUID, uuid);
             throw new NotFoundException("User " + uuid + " not found");
+        }
+        if (eventLogger != null)
+            eventLogger.info(UserServiceNotableEvents.I_USER_FOUND_BY_UUID, user.get().getUsername());
         return UserEntityModelMappers.toModel(user.get());
     }
 
     @Override
     public UserModel getUserByUsername(String username) {
         User user = userRepository.findByUsername(username);
-        if (user == null)
+        if (user == null) {
+            if (eventLogger != null)
+                eventLogger.error(UserServiceNotableEvents.E_USER_NOT_FOUND_BY_USERNAME, username);
             throw new NotFoundException("User " + username + " not found");
+        }
+        if (eventLogger != null)
+            eventLogger.info(UserServiceNotableEvents.I_USER_FOUND_BY_NAME, user.getUsername());
         return UserEntityModelMappers.toModel(user);
     }
 }
