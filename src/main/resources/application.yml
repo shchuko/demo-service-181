@@ -24,6 +24,7 @@ server:
     include-stacktrace: always
 
 security:
+  adminSecret: ${ADMIN_UPDATE_SECRET:secret000111}
   secret: ${JWT_SECRET:secret12345678}
   token-lifetime: 15m
   refresh-token-lifetime: 30d

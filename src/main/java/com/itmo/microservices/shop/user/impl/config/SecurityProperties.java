@@ -9,6 +9,7 @@ import java.time.Duration;
 @Component
 public class SecurityProperties {
     private String secret;
+    private String adminSecret;
     private Duration tokenLifeTime;
     private Duration refreshTokenLifeTime;
 
@@ -18,6 +19,14 @@ public class SecurityProperties {
 
     public void setSecret(String secret) {
         this.secret = secret;
+    }
+
+    public String getAdminSecret() {
+        return adminSecret;
+    }
+
+    public void setAdminSecret(String adminSecret) {
+        this.adminSecret = adminSecret;
     }
 
     public Duration getTokenLifeTime() {
