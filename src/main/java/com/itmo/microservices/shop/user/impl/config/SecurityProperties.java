@@ -2,15 +2,24 @@ package com.itmo.microservices.shop.user.impl.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
 
 @ConfigurationProperties("security")
 @Component
 public class SecurityProperties {
-    public String secret = "sec12345678";
-    public Duration tokenLifeTime = Duration.ofMinutes(15);
-    public Duration refreshTokenLifeTime = Duration.ofMinutes(30);
+    @Value("${security.secret}")
+    private String secret;
+
+    @Value("${security.token-lifetime}")
+    private int accessTokenLifetimeSeconds;
+
+    @Value("${security.refresh-token-lifetime}")
+    private int refreshTokenLifetimeSeconds;
+
+    private Duration tokenLifeTime = Duration.ofSeconds(accessTokenLifetimeSeconds);
+    private Duration refreshTokenLifeTime = Duration.ofSeconds(refreshTokenLifetimeSeconds);
 
     public String getSecret() {
         return secret;

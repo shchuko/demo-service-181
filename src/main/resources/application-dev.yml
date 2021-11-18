@@ -17,4 +17,4 @@ spring:
     enabled: true
 
 security:
-  token-lifetime: 30m
+  token-lifetime: 1800
