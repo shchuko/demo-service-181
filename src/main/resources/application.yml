@@ -25,8 +25,8 @@ server:
 
 security:
   secret: ${JWT_SECRET:secret12345678}
-  token-lifetime: 900
-  refresh-token-lifetime: 2592000
+  token-lifetime: 15m
+  refresh-token-lifetime: 30d
 
 logstash:
   url: logstash:4560
