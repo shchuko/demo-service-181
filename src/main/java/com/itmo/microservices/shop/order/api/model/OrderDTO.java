@@ -19,7 +19,7 @@ public class OrderDTO {
     private String status;
 
     @JsonProperty("itemsMap")
-    private Map<OrderItemDTO,Integer> itemsMap;
+    private Map<UUID, Integer> itemsMap;
 
     @JsonProperty("deliveryDuration")
     private long deliveryDuration;
