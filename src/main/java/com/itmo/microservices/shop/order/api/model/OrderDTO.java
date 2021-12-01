@@ -16,7 +16,7 @@ public class OrderDTO {
     private long timeCreated;
 
     @JsonProperty("status")
-    private String status;  
+    private String status;
 
     @JsonProperty("itemsMap")
     private Map<OrderItemDTO,Integer> itemsMap;

@@ -30,7 +30,9 @@ class NotificationModuleEventListener(private val notificationService: Notificat
             event
         )
 
-    }@Subscribe
+    }
+
+    @Subscribe
     @AllowConcurrentEvents
     fun accept(event: OrderCreatedEvent) = executor.execute {
         notificationService.processOrderFinalized(event.orderDTO)
