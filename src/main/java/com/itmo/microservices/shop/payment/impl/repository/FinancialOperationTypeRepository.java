@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface FinancialOperationTypeRepository extends JpaRepository<FinancialOperationType, Integer> {
 
     FinancialOperationType findFinancialOperationTypeById(Integer id);
+
+    FinancialOperationType findFinancialOperationTypeByName(String name);
 }
