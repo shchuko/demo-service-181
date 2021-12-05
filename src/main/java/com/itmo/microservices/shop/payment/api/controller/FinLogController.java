@@ -25,7 +25,7 @@ public class FinLogController {
     @GetMapping
     @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     ResponseEntity<?> getUserFinancialLog(@RequestParam(defaultValue = "", required = false) String orderId) {
-        UUID userId = UUID.fromString("e99b7ee6-ee5e-4cb9-9cdd-33fe50765e6e");
+        UUID userId = UUID.fromString("E99B7EE6-EE5E-4CB9-9CDD-33FE50765E6E");
         try {
             if (orderId.isEmpty()) {
                 return ResponseEntity.ok(finLogService.getUserFinanceLog(userId));

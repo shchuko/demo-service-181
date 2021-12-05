@@ -89,7 +89,9 @@ public class DefaultPaymentService implements PaymentService {
 
     public PaymentSubmissionDto orderPayment(String orderId) throws PaymentFailedException {
         PaymentLogRecord record = new PaymentLogRecord();
-        record.setUserId(UUID.fromString("C32B6A84-8D50-4254-B89D-7103C39702E9")); // TODO remove user uuid stub
+
+        // TODO move user id setting to the payment controller, get it this method argument
+        record.setUserId(UUID.fromString("E99B7EE6-EE5E-4CB9-9CDD-33FE50765E6E"));
         record.setFinancialOperationType(financialOperationTypeRepository.findFinancialOperationTypeByName("WITHDRAW"));
 
         record.setOrderId(UUID.fromString(orderId)); // TODO add order id validation
