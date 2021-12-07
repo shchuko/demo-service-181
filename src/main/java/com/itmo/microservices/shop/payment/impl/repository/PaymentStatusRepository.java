@@ -7,4 +7,9 @@ public interface PaymentStatusRepository extends JpaRepository<PaymentStatus, In
 
     PaymentStatus findPaymentStatusById(Integer id);
     PaymentStatus findByName(String name);
+
+
+    enum VALUES {
+        FAILED, SUCCESS
+    }
 }
