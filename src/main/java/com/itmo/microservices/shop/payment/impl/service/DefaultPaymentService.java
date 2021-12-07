@@ -10,6 +10,7 @@ import com.itmo.microservices.shop.common.externalservice.api.TransactionRespons
 import com.itmo.microservices.shop.common.transactions.TransactionPollingProcessor;
 import com.itmo.microservices.shop.common.transactions.TransactionSyncProcessor;
 import com.itmo.microservices.shop.common.transactions.TransactionWrapper;
+import com.itmo.microservices.shop.common.transactions.WriteBackStorage;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionProcessingException;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionStartException;
 import com.itmo.microservices.shop.common.transactions.functional.TransactionProcessor;
@@ -17,15 +18,21 @@ import com.itmo.microservices.shop.payment.api.model.PaymentSubmissionDto;
 import com.itmo.microservices.shop.payment.api.service.PaymentService;
 import com.itmo.microservices.shop.payment.impl.config.ExternalPaymentServiceCredentials;
 import com.itmo.microservices.shop.payment.impl.entity.PaymentLogRecord;
+import com.itmo.microservices.shop.payment.impl.entity.PaymentTransactionsProcessorWriteback;
 import com.itmo.microservices.shop.payment.impl.exceptions.PaymentFailedException;
 import com.itmo.microservices.shop.payment.impl.repository.FinancialOperationTypeRepository;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentLogRecordRepository;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
+import com.itmo.microservices.shop.payment.impl.repository.PaymentTransactionsProcessorWritebackRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class DefaultPaymentService implements PaymentService {
@@ -42,14 +49,16 @@ public class DefaultPaymentService implements PaymentService {
     private final PaymentLogRecordRepository paymentLogRecordRepo;
     private final FinancialOperationTypeRepository financialOperationTypeRepository;
     private final PaymentStatusRepository paymentStatusRepository;
+    private final PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository;
 
     public DefaultPaymentService(PaymentLogRecordRepository paymentLogRecordRepo,
                                  FinancialOperationTypeRepository financialOperationTypeRepository,
                                  PaymentStatusRepository paymentStatusRepository,
-                                 ExternalPaymentServiceCredentials externalPaymentServiceCredentials) {
+                                 ExternalPaymentServiceCredentials externalPaymentServiceCredentials, PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository) {
         this.paymentLogRecordRepo = paymentLogRecordRepo;
         this.financialOperationTypeRepository = financialOperationTypeRepository;
         this.paymentStatusRepository = paymentStatusRepository;
+        this.paymentTransactionsProcessorWritebackRepository = paymentTransactionsProcessorWritebackRepository;
 
         pollingClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getPollingSecret());
         syncClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getSyncSecret());
@@ -72,6 +81,7 @@ public class DefaultPaymentService implements PaymentService {
 
         pollingTransactionProcessor = TransactionPollingProcessor.<TransactionResponseDto, UUID, TransactionContext>builder()
                 .withPollingExecutorService(retryingExecutorService)
+                .withWriteBackStorage(new WriteBackStorageImpl())
                 .withTransactionStarter((Object... ignored) -> {
                     try {
                         return pollingClient.post().toTransactionWrapper();
@@ -88,16 +98,17 @@ public class DefaultPaymentService implements PaymentService {
     }
 
     public PaymentSubmissionDto orderPayment(String orderId) throws PaymentFailedException {
-        PaymentLogRecord record = new PaymentLogRecord();
+
+        PaymentTransactionsProcessorWriteback entry = new PaymentTransactionsProcessorWriteback();
 
         // TODO move user id setting to the payment controller, get it this method argument
-        record.setUserId(UUID.fromString("E99B7EE6-EE5E-4CB9-9CDD-33FE50765E6E"));
-        record.setFinancialOperationType(financialOperationTypeRepository.findFinancialOperationTypeByName("WITHDRAW"));
+        entry.setUserId(UUID.fromString("E99B7EE6-EE5E-4CB9-9CDD-33FE50765E6E"));
+        entry.setFinancialOperationTypeName(FinancialOperationTypeRepository.VALUES.WITHDRAW.name());
 
-        record.setOrderId(UUID.fromString(orderId)); // TODO add order id validation
-        record.setAmount(10); // TODO remove order amount stub
+        entry.setOrderId(UUID.fromString(orderId)); // TODO add order id validation
+        entry.setAmount(10); // TODO remove order amount stub
 
-        TransactionContext context = new TransactionContext(record);
+        TransactionContext context = new TransactionContext(entry);
         /* Try to submit transaction using polling */
         TransactionWrapper<TransactionResponseDto, UUID> transactionWrapper = null;
         try {
@@ -121,16 +132,21 @@ public class DefaultPaymentService implements PaymentService {
     }
 
     private void transactionCompletionProcessor(TransactionWrapper<TransactionResponseDto, UUID> transaction, TransactionContext context) {
-        PaymentLogRecord paymentLogRecord = context.paymentLogRecord;
+        PaymentLogRecord paymentLogRecord = new PaymentLogRecord();
+
         paymentLogRecord.setTransactionId(transaction.getId());
+        paymentLogRecord.setAmount(context.unwrap().getAmount());
+        paymentLogRecord.setOrderId(context.unwrap().getOrderId());
+        paymentLogRecord.setUserId(context.unwrap().getUserId());
+        paymentLogRecord.setFinancialOperationType(financialOperationTypeRepository.findFinancialOperationTypeByName(context.unwrap().getFinancialOperationTypeName()));
         paymentLogRecord.setTimestamp(transaction.getWrappedObject().getCompletedTime());
 
         switch (transaction.getStatus()) {
             case SUCCESS:
-                paymentLogRecord.setPaymentStatus(paymentStatusRepository.findByName("SUCCESS"));
+                paymentLogRecord.setPaymentStatus(paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.SUCCESS.name()));
                 break;
             case FAILURE:
-                paymentLogRecord.setPaymentStatus(paymentStatusRepository.findByName("FAILED"));
+                paymentLogRecord.setPaymentStatus(paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.FAILED.name()));
                 break;
         }
 
@@ -139,10 +155,35 @@ public class DefaultPaymentService implements PaymentService {
     }
 
     private static class TransactionContext {
-        private final PaymentLogRecord paymentLogRecord;
+        private final PaymentTransactionsProcessorWriteback paymentTransactionsProcessorWriteback;
 
-        private TransactionContext(PaymentLogRecord paymentLogRecord) {
-            this.paymentLogRecord = paymentLogRecord;
+        private TransactionContext(PaymentTransactionsProcessorWriteback paymentTransactionsProcessorWriteback) {
+            this.paymentTransactionsProcessorWriteback = paymentTransactionsProcessorWriteback;
+        }
+
+        private PaymentTransactionsProcessorWriteback unwrap() {
+            return paymentTransactionsProcessorWriteback;
+        }
+    }
+
+    private class WriteBackStorageImpl implements WriteBackStorage<UUID, TransactionContext> {
+        @Override
+        public void add(UUID uuid, TransactionContext context) {
+            context.unwrap().setId(uuid);
+            paymentTransactionsProcessorWritebackRepository.save(context.unwrap());
+        }
+
+        @Override
+        public void remove(UUID uuid) {
+            try {
+                paymentTransactionsProcessorWritebackRepository.deleteById(uuid);
+            } catch (Exception ignored) {
+            }
+        }
+
+        @Override
+        public List<Map.Entry<UUID, TransactionContext>> getAll() {
+            return new ArrayList<>(paymentTransactionsProcessorWritebackRepository.findAll().stream().collect(Collectors.toMap(PaymentTransactionsProcessorWriteback::getId, TransactionContext::new)).entrySet());
         }
     }
 }

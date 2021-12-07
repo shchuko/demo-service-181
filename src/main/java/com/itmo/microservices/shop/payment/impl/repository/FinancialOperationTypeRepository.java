@@ -8,4 +8,8 @@ public interface FinancialOperationTypeRepository extends JpaRepository<Financia
     FinancialOperationType findFinancialOperationTypeById(Integer id);
 
     FinancialOperationType findFinancialOperationTypeByName(String name);
+
+    enum VALUES {
+        WITHDRAW, REFUND
+    }
 }
