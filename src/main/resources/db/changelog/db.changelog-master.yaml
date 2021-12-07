@@ -2,3 +2,6 @@ databaseChangeLog:
   - include:
       file: migrations/v1/changelog-v1-cumulative.yaml
       relativeToChangelogFile: true
+  - include:
+      file: migrations/v2/changelog-v2-cumulative.yaml
+      relativeToChangelogFile: true
