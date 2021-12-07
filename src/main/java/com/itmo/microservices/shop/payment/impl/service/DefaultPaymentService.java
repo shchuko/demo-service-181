@@ -37,7 +37,6 @@ import java.util.stream.Collectors;
 @Service
 public class DefaultPaymentService implements PaymentService {
     private static final long POLLING_RETRY_INTERVAL_MILLIS = 500;
-    private static final int MAX_RETRY_ATTEMPTS = 50;
     private static final int RETRYING_EXECUTOR_POOL_SIZE = 5;
 
     private final ExternalServiceClient pollingClient;
@@ -63,19 +62,7 @@ public class DefaultPaymentService implements PaymentService {
         pollingClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getPollingSecret());
         syncClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getSyncSecret());
 
-        TimeoutProvider timeoutProvider = new FixedTimeoutProvider(POLLING_RETRY_INTERVAL_MILLIS) {
-            /* Limit retries number here */
-            private int attemptsLeft = MAX_RETRY_ATTEMPTS;
-
-            @Override
-            public boolean hasNextTimeout() {
-                if (attemptsLeft > 0) {
-                    --attemptsLeft;
-                    return super.hasNextTimeout();
-                }
-                return false;
-            }
-        };
+        TimeoutProvider timeoutProvider = new FixedTimeoutProvider(POLLING_RETRY_INTERVAL_MILLIS);
         RetryingExecutorService retryingExecutorService = new TimedRetryingExecutorService(RETRYING_EXECUTOR_POOL_SIZE, timeoutProvider);
         syncTransactionProcessor = new TransactionSyncProcessor<>((Object... ignored) -> syncClient.post().toTransactionWrapper());
 
