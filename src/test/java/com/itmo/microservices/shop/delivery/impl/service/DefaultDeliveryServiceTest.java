@@ -3,15 +3,26 @@ package com.itmo.microservices.shop.delivery.impl.service;
 import com.google.common.eventbus.EventBus;
 import com.itmo.microservices.shop.delivery.api.service.DeliveryService;
 import com.itmo.microservices.shop.delivery.impl.config.ExternalDeliveryServiceCredentials;
+import com.itmo.microservices.shop.delivery.impl.repository.DeliveryTransactionsProcessorWritebackRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 
 class DefaultDeliveryServiceTest {
-    private final DeliveryService deliveryService = new DefaultDeliveryService(new ExternalDeliveryServiceCredentials(), new EventBus());
+    private DeliveryService deliveryService;
+
+    @BeforeEach
+    void init() {
+        DeliveryTransactionsProcessorWritebackRepository writebackRepository = Mockito.mock(DeliveryTransactionsProcessorWritebackRepository.class);
+        deliveryService = new DefaultDeliveryService(writebackRepository,
+                new ExternalDeliveryServiceCredentials(),
+                new EventBus());
+    }
 
 
     @ParameterizedTest
