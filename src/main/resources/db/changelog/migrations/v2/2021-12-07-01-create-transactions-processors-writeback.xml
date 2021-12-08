@@ -27,5 +27,17 @@
         <constraints nullable="false"/>
       </column>
     </createTable>
+
+    <createTable tableName="delivery_transactions_processor_writeback">
+      <column name="id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="order_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="user_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
   </changeSet>
 </databaseChangeLog>
