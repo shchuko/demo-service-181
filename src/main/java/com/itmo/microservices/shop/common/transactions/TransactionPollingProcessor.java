@@ -2,6 +2,7 @@ package com.itmo.microservices.shop.common.transactions;
 
 import com.itmo.microservices.shop.common.executors.RetryingExecutorService;
 import com.itmo.microservices.shop.common.executors.exceptions.StopRetrying;
+import com.itmo.microservices.shop.common.limiters.Limiter;
 import com.itmo.microservices.shop.common.transactions.exception.StopPolling;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionStartException;
 import com.itmo.microservices.shop.common.transactions.functional.ExceptionHandler;
@@ -9,10 +10,7 @@ import com.itmo.microservices.shop.common.transactions.functional.TransactionPro
 import com.itmo.microservices.shop.common.transactions.functional.TransactionStarter;
 import com.itmo.microservices.shop.common.transactions.functional.TransactionUpdater;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiConsumer;
 
 public class TransactionPollingProcessor<T, ID, C> implements TransactionProcessor<T, ID, C> {
@@ -22,6 +20,7 @@ public class TransactionPollingProcessor<T, ID, C> implements TransactionProcess
     private final TransactionUpdater<T, ID> transactionUpdater;
     private final BiConsumer<TransactionWrapper<T, ID>, C> transactionFinishHandler;
     private final Map<Class<? extends Throwable>, ExceptionHandler> exceptionHandlers;
+    private final List<Limiter> limiterList;
 
     public static <T, ID, C> Builder<T, ID, C> builder() {
         return new Builder<>();
@@ -36,13 +35,14 @@ public class TransactionPollingProcessor<T, ID, C> implements TransactionProcess
         /* Optional fields */
         private WriteBackStorage<ID, C> writeBackStorage;
         private BiConsumer<TransactionWrapper<T, ID>, C> transactionFinishHandler;
-
+        private final List<Limiter> limiterList;
         private final Map<Class<? extends Throwable>, ExceptionHandler> exceptionHandlers = new HashMap<>();
 
         {
             /* Ignoring stubs */
             transactionFinishHandler = (var wrapper, var context) -> {
             };
+            limiterList = new ArrayList<>();
             writeBackStorage = new WriteBackStorage<>() {
                 @Override
                 public void add(ID id, C context) {
@@ -67,11 +67,16 @@ public class TransactionPollingProcessor<T, ID, C> implements TransactionProcess
                     transactionUpdater,
                     writeBackStorage,
                     transactionFinishHandler,
-                    exceptionHandlers);
+                    exceptionHandlers, limiterList);
         }
 
         public Builder<T, ID, C> withPollingExecutorService(RetryingExecutorService service) {
             this.retryingExecutorService = service;
+            return this;
+        }
+
+        public Builder<T, ID, C> withTransactionStartLimiter(Limiter limiter) {
+            this.limiterList.add(limiter);
             return this;
         }
 
@@ -130,9 +135,13 @@ public class TransactionPollingProcessor<T, ID, C> implements TransactionProcess
 
     @Override
     public TransactionWrapper<T, ID> startTransaction(C context, Object... args) throws TransactionStartException {
-        TransactionWrapper<T, ID> transactionWrapper = transactionStarter.start(args);
-        startPolling(transactionWrapper.getId(), context);
-        return transactionWrapper;
+        if (this.limiterList.stream().allMatch(Limiter::tryAcquire)) {
+            TransactionWrapper<T, ID> transactionWrapper = transactionStarter.start(args);
+            startPolling(transactionWrapper.getId(), context);
+            return transactionWrapper;
+        }
+
+        throw new TransactionStartException("Terminated on limiter restriction");
     }
 
     private void startPolling(ID transactionId, C context) {
@@ -166,20 +175,19 @@ public class TransactionPollingProcessor<T, ID, C> implements TransactionProcess
     }
 
 
-
     private TransactionPollingProcessor(RetryingExecutorService retryingExecutorService,
                                         TransactionStarter<T, ID> transactionStarter,
                                         TransactionUpdater<T, ID> transactionUpdater,
                                         WriteBackStorage<ID, C> writeBackStorage,
                                         BiConsumer<TransactionWrapper<T, ID>, C> transactionFinishHandler,
-                                        Map<Class<? extends Throwable>, ExceptionHandler> exceptionHandlers) {
+                                        Map<Class<? extends Throwable>, ExceptionHandler> exceptionHandlers, List<Limiter> limiterList) {
         this.retryingExecutorService = retryingExecutorService;
         this.writeBackStorage = writeBackStorage;
         this.transactionStarter = transactionStarter;
         this.transactionUpdater = transactionUpdater;
         this.transactionFinishHandler = transactionFinishHandler;
         this.exceptionHandlers = exceptionHandlers;
-
+        this.limiterList = limiterList;
         writeBackStorage.getAll().forEach(it -> startPolling(it.getKey(), it.getValue()));
     }
 
