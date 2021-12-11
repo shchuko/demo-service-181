@@ -9,6 +9,7 @@ public class ExternalDeliveryServiceCredentials {
     private String url;
     private String syncSecret;
     private String pollingSecret;
+    private Integer rateLimit;
 
     public String getUrl() {
         return url;
@@ -32,5 +33,13 @@ public class ExternalDeliveryServiceCredentials {
 
     public void setPollingSecret(String pollingSecret) {
         this.pollingSecret = pollingSecret;
+    }
+
+    public Integer getRateLimit() {
+        return rateLimit;
+    }
+
+    public void setRateLimit(Integer rateLimit) {
+        this.rateLimit = rateLimit;
     }
 }

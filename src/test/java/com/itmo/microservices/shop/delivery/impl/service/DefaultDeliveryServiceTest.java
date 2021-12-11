@@ -19,8 +19,10 @@ class DefaultDeliveryServiceTest {
     @BeforeEach
     void init() {
         DeliveryTransactionsProcessorWritebackRepository writebackRepository = Mockito.mock(DeliveryTransactionsProcessorWritebackRepository.class);
+        ExternalDeliveryServiceCredentials credentials = new ExternalDeliveryServiceCredentials();
+        credentials.setRateLimit(50);
         deliveryService = new DefaultDeliveryService(writebackRepository,
-                new ExternalDeliveryServiceCredentials(),
+                credentials,
                 new EventBus());
     }
 
