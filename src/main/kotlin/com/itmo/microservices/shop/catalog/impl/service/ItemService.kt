@@ -23,6 +23,44 @@ class ItemService(private val itemRepository: ItemRepository) : ItemService {
     private lateinit var logger: EventLogger
     val lock = ReentrantLock(true)
 
+    //region orderInjectionMethods
+
+
+    @Throws(IllegalArgumentException::class)
+    override fun getByUuid(uuid: UUID): ItemDTO = itemRepository.findById(uuid).let {
+        if (it.isEmpty) {
+            logger.error(ItemServiceNotableEvents.E_ITEM_WITH_UUID_NOT_FOUND, uuid);
+            throw ItemNotFoundException("No value with $uuid exists");
+        }
+        ItemToItemDTOMapper.map(it.get())
+    }
+
+    override fun bookItems(bookMap: Map<UUID, Int>?): MutableList<UUID> {
+        val uuidBookedList = ArrayList<UUID>();
+        bookMap?.forEach { (uuid, amount) ->
+            val isBooked = this.increaseItemAmount(-1 * amount, uuid)
+            if (!isBooked) {
+                uuidBookedList.add(uuid)
+            }
+        }
+        return uuidBookedList
+    }
+
+    override fun deleteBooking(bookMap: MutableMap<UUID, Int>?): MutableList<UUID> {
+        val uuidBookedList = ArrayList<UUID>();
+        bookMap?.forEach { (uuid, amount) ->
+            val isBooked = this.increaseItemAmount(amount, uuid)
+            if (!isBooked) {
+                uuidBookedList.add(uuid)
+            }
+        }
+        return uuidBookedList
+    }
+
+    //endregion
+
+    //region controllerUsedMethods
+
     override fun getItems(): MutableList<ItemDTO> = itemRepository.findAll()
         .stream()
         .map(ItemToItemDTOMapper::map)
@@ -106,8 +144,10 @@ class ItemService(private val itemRepository: ItemRepository) : ItemService {
         }
     }
 
+    //endregion
+
     @Throws(IllegalArgumentException::class)
-    override fun increaseItemAmount(diff: Int, itemUuid: UUID): Boolean {
+    fun increaseItemAmount(diff: Int, itemUuid: UUID): Boolean {
         lock.withLock {
             itemRepository.findById(itemUuid).apply {
                 return when {
