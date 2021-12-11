@@ -10,6 +10,7 @@ import com.itmo.microservices.shop.common.executors.timeout.FixedTimeoutProvider
 import com.itmo.microservices.shop.common.executors.timeout.TimeoutProvider;
 import com.itmo.microservices.shop.common.externalservice.ExternalServiceClient;
 import com.itmo.microservices.shop.common.externalservice.api.TransactionResponseDto;
+import com.itmo.microservices.shop.common.limiters.RateLimiter;
 import com.itmo.microservices.shop.common.transactions.TransactionPollingProcessor;
 import com.itmo.microservices.shop.common.transactions.TransactionSyncProcessor;
 import com.itmo.microservices.shop.common.transactions.TransactionWrapper;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -71,6 +73,7 @@ public class DefaultDeliveryService implements DeliveryService {
         pollingTransactionProcessor = TransactionPollingProcessor.<TransactionResponseDto, UUID, TransactionContext>builder()
                 .withPollingExecutorService(retryingExecutorService)
                 .withWriteBackStorage(new WriteBackStorageImpl())
+                .withTransactionStartLimiter(new RateLimiter(externalDeliveryServiceCredentials.getRateLimit(), TimeUnit.MINUTES))
                 .withTransactionStarter((Object... ignored) -> {
                     try {
                         return pollingClient.post().toTransactionWrapper();

@@ -39,6 +39,7 @@ external-delivery-service:
   url: http://tps:8080
   sync-secret: ${EXTERNAL_DELIVERY_SERVICE_SYNC_SECRET:7d65037f-e9af-433e-8e3f-a3da77e019b1}
   polling-secret: ${EXTERNAL_DELIVERY_SERVICE_POLLING_SECRET:ba37e656-4516-4ac9-a169-2f356388409b}
+  rate-limit: 50
 
 logstash:
   url: logstash:4560
