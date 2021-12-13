@@ -1,6 +1,7 @@
 package com.itmo.microservices.shop.delivery.impl.service;
 
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
 import com.itmo.microservices.commonlib.logging.NotableEvent;
@@ -18,12 +19,13 @@ import com.itmo.microservices.shop.common.transactions.WriteBackStorage;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionProcessingException;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionStartException;
 import com.itmo.microservices.shop.common.transactions.functional.TransactionProcessor;
-import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionPassEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionSuccessEvent;
 import com.itmo.microservices.shop.delivery.api.service.DeliveryService;
 import com.itmo.microservices.shop.delivery.impl.config.ExternalDeliveryServiceCredentials;
 import com.itmo.microservices.shop.delivery.impl.entity.DeliveryTransactionsProcessorWriteback;
-import com.itmo.microservices.shop.delivery.impl.exceptions.DeliveryFailedException;
 import com.itmo.microservices.shop.delivery.impl.repository.DeliveryTransactionsProcessorWritebackRepository;
+import com.itmo.microservices.shop.order.api.messaging.OrderStartDeliveryTransactionEvent;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -89,12 +91,13 @@ public class DefaultDeliveryService implements DeliveryService {
                 .build();
     }
 
-    public void passDeliveryToExternal() throws DeliveryFailedException {
+    @Subscribe
+    public void startAsyncTransactionToExternal(OrderStartDeliveryTransactionEvent event) {
         DeliveryTransactionsProcessorWriteback entry = new DeliveryTransactionsProcessorWriteback();
 
-        // TODO get id's from order controller
-        entry.setUserId(UUID.randomUUID());
-        entry.setOrderId(UUID.randomUUID());
+        entry.setOrderId(event.getOrderID());
+        entry.setUserId(event.getUserID());
+        entry.setTimeSlot(event.getTimeSlot());
 
         TransactionContext context = new TransactionContext(entry);
         TransactionWrapper<TransactionResponseDto, UUID> transactionWrapper = null;
@@ -109,9 +112,13 @@ public class DefaultDeliveryService implements DeliveryService {
                 transactionWrapper = syncTransactionProcessor.startTransaction(context);
             } catch (TransactionProcessingException e) {
                 // TODO collect metrics here
-                throw new DeliveryFailedException("Delivery failed because of external service error");
+                eventBus.post(new DeliveryTransactionFailedEvent(entry.getOrderId(),
+                        entry.getUserId(),
+                        entry.getTimeSlot()));
             }
-            transactionCompletionProcessor(transactionWrapper, context);
+            if (transactionWrapper != null) {
+                transactionCompletionProcessor(transactionWrapper, context);
+            }
         }
     }
 
@@ -133,22 +140,19 @@ public class DefaultDeliveryService implements DeliveryService {
     }
 
     private void transactionCompletionProcessor(TransactionWrapper<TransactionResponseDto, UUID> transaction, TransactionContext context) {
-        DeliveryTransactionPassEvent event = new DeliveryTransactionPassEvent();
-
         switch (transaction.getStatus()) {
             case SUCCESS:
-                event.setStatus(STATUS.SUCCESS.name());
+                eventBus.post(new DeliveryTransactionSuccessEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
+                        context.deliveryTransactionsProcessorWriteback.getUserId(),
+                        context.deliveryTransactionsProcessorWriteback.getTimeSlot()));
                 break;
             case FAILURE:
-                event.setStatus(STATUS.FAILED.name());
+                eventBus.post(new DeliveryTransactionFailedEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
+                        context.deliveryTransactionsProcessorWriteback.getUserId(),
+                        context.deliveryTransactionsProcessorWriteback.getTimeSlot()));
                 break;
         }
-
-        // TODO notify order service about order payment completion
-        eventBus.post(event);
     }
-
-    private enum STATUS {SUCCESS, FAILED}
 
     private void logInfoEvent(@NotNull NotableEvent event, @NotNull Object... payload) {
         if (eventLogger != null) {
