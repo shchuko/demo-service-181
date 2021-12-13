@@ -1,8 +1,12 @@
 package com.itmo.microservices.shop.order.impl.service;
 
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionSuccessEvent;
+import com.itmo.microservices.shop.order.api.messaging.OrderStartDeliveryTransactionEvent;
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.api.service.ItemService;
@@ -153,6 +157,63 @@ public class OrderItemService implements IOrderService {
                 eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
             }
             throw new NoSuchElementException(exception.getMessage());
+        }
+    }
+
+    @Subscribe
+    public void handleSuccessDelivery(DeliveryTransactionSuccessEvent event) {
+        OrderTable order = getOrderByUUID(event.getOrderId());
+        Optional<OrderStatus> completedStatusOptional = statusRepository.findOrderStatusByName("COMPLETED ");
+        if (completedStatusOptional.isEmpty()) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "COMPLETED ");
+            }
+            throw new NoSuchElementException(String.format("No status with name %s", "COMPLETED "));
+        }
+        order.setStatus(completedStatusOptional.get());
+        tableRepository.save(order);
+        if (eventLogger != null) {
+            eventLogger.error(OrderServiceNotableEvent.I_ORDER_END_DELIVERY, event.getOrderId());
+        }
+    }
+
+    @Subscribe
+    public void handleStartDelivery(OrderStartDeliveryTransactionEvent event) {
+        OrderTable order = getOrderByUUID(event.getOrderID());
+        Optional<OrderStatus> shippingStatusOptional = statusRepository.findOrderStatusByName("SHIPPING ");
+        if (shippingStatusOptional.isEmpty()) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "SHIPPING ");
+            }
+            throw new NoSuchElementException(String.format("No status with name %s", "SHIPPING "));
+        }
+        order.setStatus(shippingStatusOptional.get());
+        tableRepository.save(order);
+        if (eventLogger != null) {
+            eventLogger.error(OrderServiceNotableEvent.I_ORDER_START_DELIVERY, event.getOrderID());
+        }
+    }
+
+    @Subscribe
+    public void handleFailedDelivery(DeliveryTransactionFailedEvent event) {
+        OrderTable order = getOrderByUUID(event.getOrderId());
+        Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND ");
+        if (refundStatusOptional.isEmpty()) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "REFUND ");
+            }
+            throw new NoSuchElementException(String.format("No status with name %s", "REFUND "));
+        }
+        order.setStatus(refundStatusOptional.get());
+        HashMap<UUID, Integer> items = new HashMap<>();
+        Set<OrderItem> bookedItems =  order.getOrderItems();
+        for (OrderItem orderItem : bookedItems) {
+            items.put(orderItem.getItemId(), orderItem.getAmount());
+        }
+        // TODO delete booking
+        // TODO refund money
+        if (eventLogger != null) {
+            eventLogger.error(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
         }
     }
 
