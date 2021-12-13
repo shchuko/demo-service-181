@@ -4,6 +4,8 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
+import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
+import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionSuccessEvent;
 import com.itmo.microservices.shop.order.api.messaging.OrderStartDeliveryTransactionEvent;
@@ -217,6 +219,34 @@ public class OrderItemService implements IOrderService {
         }
     }
 
+    @Subscribe
+    public void handleSuccessPaid(OrderSuccessPaidEvent event) {
+        Optional<OrderStatus> paidStatusOptional = statusRepository.findOrderStatusByName("PAID");
+        if (paidStatusOptional.isEmpty()) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "PAID");
+            }
+            throw new NoSuchElementException(String.format("No status with name %s", "PAID"));
+        }
+        OrderTable order = getOrderByUUID(event.getOrderID());
+        order.setStatus(paidStatusOptional.get());
+        tableRepository.save(order);
+    }
+
+    @Subscribe
+    public void handleFailedPaid(OrderFailedPaidEvent event) {
+        Optional<OrderStatus> discardStatusOptional = statusRepository.findOrderStatusByName("DISCARD");
+        if (discardStatusOptional.isEmpty()) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "DISCARD");
+            }
+            throw new NoSuchElementException(String.format("No status with name %s", "DISCARD"));
+        }
+        OrderTable order = getOrderByUUID(event.getOrderID());
+        order.setStatus(discardStatusOptional.get());
+        tableRepository.save(order);
+        // TODO remove booking
+    }
     private OrderTable getOrderByUUID(UUID orderUUID) {
         Optional<OrderTable> orderTableOptional = tableRepository.findById(orderUUID);
         if (orderTableOptional.isEmpty()) {
