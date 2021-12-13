@@ -18,6 +18,7 @@ public class DeliveryTransactionsProcessorWriteback {
     private UUID id;
     private UUID orderId;
     private UUID userId;
+    private int timeSlot;
 
     @Override
     public boolean equals(Object o) {
