@@ -3,6 +3,10 @@ package com.itmo.microservices.shop.order.impl.service;
 import com.google.common.eventbus.EventBus;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
+import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
+import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
+import com.itmo.microservices.shop.catalog.api.service.ItemService;
+import com.itmo.microservices.shop.order.api.exeptions.OrderAlreadyBookedException;
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
 import com.itmo.microservices.shop.order.api.model.OrderDTO;
 import com.itmo.microservices.shop.order.api.service.IOrderService;
@@ -20,10 +24,7 @@ import kotlin.Suppress;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Suppress(names = "UnstableApiUsage")
@@ -34,15 +35,17 @@ public class OrderItemService implements IOrderService {
     @InjectEventLogger
     private EventLogger eventLogger;
     private final EventBus eventBus;
+    private final ItemService itemService;
 
     public OrderItemService(IOrderItemRepository itemRepository,
                             IOrderStatusRepository statusRepository,
                             IOrderTableRepository tableRepository,
-                            EventBus eventBus) {
+                            EventBus eventBus, ItemService itemService) {
         this.itemRepository = itemRepository;
         this.statusRepository = statusRepository;
         this.tableRepository = tableRepository;
         this.eventBus = eventBus;
+        this.itemService = itemService;
     }
 
     @Override
@@ -78,16 +81,24 @@ public class OrderItemService implements IOrderService {
     @Override
     public void addItem(UUID orderUUID, UUID itemUUID, Integer amount) throws NoSuchElementException {
         OrderTable order = getOrderByUUID(orderUUID);
-        OrderItem item = new OrderItem();
-        item.setOrderId(orderUUID);
-        item.setPrice(0); // mock price
-        item.setOrder(order);
-        item.setAmount(amount);
-        item.setItemId(itemUUID);
-        itemRepository.save(item);
-
-        if (eventLogger != null) {
-            eventLogger.info(OrderServiceNotableEvent.I_ITEM_ADDED, itemUUID);
+        try {
+           ItemDTO itemDTO = itemService.getByUuid(itemUUID);
+           OrderItem item = new OrderItem();
+           item.setOrderId(orderUUID);
+           item.setPrice(itemDTO.getPrice());
+           item.setOrder(order);
+           item.setAmount(amount);
+           item.setItemId(itemUUID);
+           itemRepository.save(item);
+           if (eventLogger != null) {
+               eventLogger.info(OrderServiceNotableEvent.I_ITEM_ADDED, itemUUID);
+           }
+        }
+        catch (ItemNotFoundException exception) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
+            }
+            throw new NoSuchElementException(exception.getMessage());
         }
     }
 
@@ -104,7 +115,7 @@ public class OrderItemService implements IOrderService {
         if (eventLogger != null) {
             eventLogger.info(OrderServiceNotableEvent.I_ORDER_SET_TIME, orderUUID);
         }
-        return bookingDTO; // mock BookingDTO
+        return bookingDTO;
     }
 
     @Override
@@ -116,20 +127,40 @@ public class OrderItemService implements IOrderService {
             }
             throw new NoSuchElementException(String.format("No status with name %s", "BOOKED"));
         }
+        try {
+            OrderTable order = getOrderByUUID(orderUUID);
+            if (Objects.equals(order.getStatus().getName(), "BOOKED")) {
+                if (eventLogger != null) {
+                    eventLogger.error(OrderServiceNotableEvent.E_ORDER_ALREADY_BOOKED, orderUUID);
+                }
+                throw new OrderAlreadyBookedException(String.format("Order with uuid %s already booked", orderUUID));
+            }
+            order.setStatus(finalizeStatusOptional.get());
 
-        OrderTable order = getOrderByUUID(orderUUID);
-        order.setStatus(finalizeStatusOptional.get());
-        tableRepository.save(order);
+            HashMap<UUID, Integer> items = new HashMap<>();
+            Set<OrderItem> addedItems =  order.getOrderItems();
+            for (OrderItem orderItem : addedItems) {
+                items.put(orderItem.getItemId(), orderItem.getAmount());
+            }
+            List<UUID> failedItems = itemService.bookItems(items);
 
-        BookingDTO bookingDTO = new BookingDTO();
-        bookingDTO.setUuid(orderUUID);
-        bookingDTO.setFailedItems(new HashSet<>());
+            BookingDTO bookingDTO = new BookingDTO();
+            bookingDTO.setUuid(orderUUID);
+            bookingDTO.setFailedItems(new HashSet<>(failedItems));
 
-        if (eventLogger != null) {
-            eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
+            tableRepository.save(order);
+            if (eventLogger != null) {
+                eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
+            }
+            eventBus.post(new OrderFinalizedEvent(OrderTableToOrderDTO.toDTO(order)));
+            return bookingDTO;
         }
-        eventBus.post(new OrderFinalizedEvent(OrderTableToOrderDTO.toDTO(order)));
-        return bookingDTO; // mock BookingDTO
+        catch (ItemNotFoundException exception) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
+            }
+            throw new NoSuchElementException(exception.getMessage());
+        }
     }
 
     private OrderTable getOrderByUUID(UUID orderUUID) {

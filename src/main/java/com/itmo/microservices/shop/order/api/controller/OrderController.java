@@ -1,5 +1,6 @@
 package com.itmo.microservices.shop.order.api.controller;
 
+import com.itmo.microservices.shop.order.api.exeptions.OrderAlreadyBookedException;
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
 import com.itmo.microservices.shop.order.api.model.OrderDTO;
 import com.itmo.microservices.shop.order.api.service.IOrderService;
@@ -58,5 +59,11 @@ public class OrderController {
     public void handleNoSuchElementException(HttpServletResponse response)
             throws IOException {
         response.sendError(HttpStatus.NOT_FOUND.value());
+    }
+
+    @ExceptionHandler(OrderAlreadyBookedException.class)
+    public void handleOrderAlreadyBookedException(HttpServletResponse response)
+            throws IOException {
+        response.sendError(HttpStatus.BAD_REQUEST.value());
     }
 }
