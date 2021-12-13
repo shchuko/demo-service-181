@@ -7,6 +7,9 @@ public enum OrderServiceNotableEvent implements NotableEvent {
     // info events
     I_ORDER_CREATED("Create order {}"),
     I_ORDER_BOOKED("Booked order {}"),
+    I_ORDER_START_DELIVERY("Order {} delivery start"),
+    I_ORDER_END_DELIVERY("Order {} delivery end"),
+    I_ORDER_FAILED_DELIVERY("Order {} delivery failed"),
     I_ORDER_SET_TIME("Order {} delivery time set"),
     I_ITEM_ADDED("Item with UUID {} added to order"),
 
