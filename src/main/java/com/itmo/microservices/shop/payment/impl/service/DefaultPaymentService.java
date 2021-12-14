@@ -1,6 +1,7 @@
 package com.itmo.microservices.shop.payment.impl.service;
 
 
+import com.google.common.eventbus.EventBus;
 import com.itmo.microservices.shop.common.executors.RetryingExecutorService;
 import com.itmo.microservices.shop.common.executors.TimedRetryingExecutorService;
 import com.itmo.microservices.shop.common.executors.timeout.FixedTimeoutProvider;
@@ -15,6 +16,9 @@ import com.itmo.microservices.shop.common.transactions.WriteBackStorage;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionProcessingException;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionStartException;
 import com.itmo.microservices.shop.common.transactions.functional.TransactionProcessor;
+import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
+import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
+import com.itmo.microservices.shop.order.api.service.IOrderService;
 import com.itmo.microservices.shop.payment.api.model.PaymentSubmissionDto;
 import com.itmo.microservices.shop.payment.api.service.PaymentService;
 import com.itmo.microservices.shop.payment.impl.config.ExternalPaymentServiceCredentials;
@@ -29,10 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -44,6 +45,8 @@ public class DefaultPaymentService implements PaymentService {
     private final ExternalServiceClient pollingClient;
     private final ExternalServiceClient syncClient;
 
+    private final IOrderService orderService;
+
     private final TransactionProcessor<TransactionResponseDto, UUID, TransactionContext> syncTransactionProcessor;
     private final TransactionProcessor<TransactionResponseDto, UUID, TransactionContext> pollingTransactionProcessor;
 
@@ -52,18 +55,23 @@ public class DefaultPaymentService implements PaymentService {
     private final PaymentStatusRepository paymentStatusRepository;
     private final PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository;
 
+    private final EventBus eventBus;
+
     public DefaultPaymentService(PaymentLogRecordRepository paymentLogRecordRepo,
                                  FinancialOperationTypeRepository financialOperationTypeRepository,
                                  PaymentStatusRepository paymentStatusRepository,
                                  ExternalPaymentServiceCredentials externalPaymentServiceCredentials,
-                                 PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository) {
+                                 IOrderService orderService, PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository,
+                                 EventBus eventBus) {
         this.paymentLogRecordRepo = paymentLogRecordRepo;
         this.financialOperationTypeRepository = financialOperationTypeRepository;
         this.paymentStatusRepository = paymentStatusRepository;
+        this.orderService = orderService;
         this.paymentTransactionsProcessorWritebackRepository = paymentTransactionsProcessorWritebackRepository;
 
         pollingClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getPollingSecret());
         syncClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getSyncSecret());
+        this.eventBus = eventBus;
 
         TimeoutProvider timeoutProvider = new FixedTimeoutProvider(POLLING_RETRY_INTERVAL_MILLIS);
         RetryingExecutorService retryingExecutorService = new TimedRetryingExecutorService(RETRYING_EXECUTOR_POOL_SIZE, timeoutProvider);
@@ -97,8 +105,15 @@ public class DefaultPaymentService implements PaymentService {
         entry.setUserId(UUID.fromString("E99B7EE6-EE5E-4CB9-9CDD-33FE50765E6E"));
         entry.setFinancialOperationTypeName(FinancialOperationTypeRepository.VALUES.WITHDRAW.name());
 
-        entry.setOrderId(UUID.fromString(orderId)); // TODO add order id validation
-        entry.setAmount(10); // TODO remove order amount stub
+        UUID orderUUID = UUID.fromString(orderId);
+
+        try {
+            entry.setAmount(orderService.getAmount(orderUUID));
+            entry.setOrderId(orderUUID);
+        } catch (NoSuchElementException e) {
+            // TODO collect metrics here
+            throw new PaymentFailedException(String.format("Payment failed because of %s", e.getMessage()));
+        }
 
         TransactionContext context = new TransactionContext(entry);
         /* Try to submit transaction using polling */
@@ -133,17 +148,22 @@ public class DefaultPaymentService implements PaymentService {
         paymentLogRecord.setFinancialOperationType(financialOperationTypeRepository.findFinancialOperationTypeByName(context.unwrap().getFinancialOperationTypeName()));
         paymentLogRecord.setTimestamp(transaction.getWrappedObject().getCompletedTime());
 
+
         switch (transaction.getStatus()) {
             case SUCCESS:
                 paymentLogRecord.setPaymentStatus(paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.SUCCESS.name()));
+                paymentLogRecordRepo.saveAndFlush(paymentLogRecord);
+                eventBus.post(new OrderSuccessPaidEvent(context.unwrap().getOrderId(), context.unwrap().getUserId(),
+                        context.unwrap().getAmount()));
                 break;
             case FAILURE:
                 paymentLogRecord.setPaymentStatus(paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.FAILED.name()));
+                paymentLogRecordRepo.saveAndFlush(paymentLogRecord);
+                eventBus.post(new OrderFailedPaidEvent(context.unwrap().getOrderId(), context.unwrap().getUserId(),
+                        context.unwrap().getAmount()));
                 break;
         }
 
-        paymentLogRecordRepo.saveAndFlush(paymentLogRecord);
-        // TODO notify order service about order payment completion
     }
 
     private static class TransactionContext {

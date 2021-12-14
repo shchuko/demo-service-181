@@ -247,6 +247,13 @@ public class OrderItemService implements IOrderService {
         tableRepository.save(order);
         // TODO remove booking
     }
+
+    public Integer getAmount(UUID orderUUID) throws NoSuchElementException{
+        OrderTable orderTable = this.getOrderByUUID(orderUUID);
+        // TODO: implement price collecting
+        return 10;
+    }
+
     private OrderTable getOrderByUUID(UUID orderUUID) {
         Optional<OrderTable> orderTableOptional = tableRepository.findById(orderUUID);
         if (orderTableOptional.isEmpty()) {
