@@ -41,6 +41,14 @@
             <column name="name" value="SUCCESS"/>
         </insert>
 
+        <!--  Fill booking_status table   -->
+        <insert tableName="booking_status">
+            <column name="name" value="FAILED"/>
+        </insert>
+        <insert tableName="booking_status">
+            <column name="name" value="SUCCESS"/>
+        </insert>
+
         <!--  Fill financial_operation_type table   -->
         <insert tableName="financial_operation_type">
             <column name="name" value="WITHDRAW"/>

@@ -82,19 +82,18 @@ public class OrderItemService implements IOrderService {
     public void addItem(UUID orderUUID, UUID itemUUID, Integer amount) throws NoSuchElementException {
         OrderTable order = getOrderByUUID(orderUUID);
         try {
-           ItemDTO itemDTO = itemService.getByUuid(itemUUID);
-           OrderItem item = new OrderItem();
-           item.setOrderId(orderUUID);
-           item.setPrice(itemDTO.getPrice());
-           item.setOrder(order);
-           item.setAmount(amount);
-           item.setItemId(itemUUID);
-           itemRepository.save(item);
-           if (eventLogger != null) {
-               eventLogger.info(OrderServiceNotableEvent.I_ITEM_ADDED, itemUUID);
-           }
-        }
-        catch (ItemNotFoundException exception) {
+            ItemDTO itemDTO = itemService.getByUuid(itemUUID);
+            OrderItem item = new OrderItem();
+            item.setOrderId(orderUUID);
+            item.setPrice(itemDTO.getPrice());
+            item.setOrder(order);
+            item.setAmount(amount);
+            item.setItemId(itemUUID);
+            itemRepository.save(item);
+            if (eventLogger != null) {
+                eventLogger.info(OrderServiceNotableEvent.I_ITEM_ADDED, itemUUID);
+            }
+        } catch (ItemNotFoundException exception) {
             if (eventLogger != null) {
                 eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
             }
@@ -138,24 +137,18 @@ public class OrderItemService implements IOrderService {
             order.setStatus(finalizeStatusOptional.get());
 
             HashMap<UUID, Integer> items = new HashMap<>();
-            Set<OrderItem> addedItems =  order.getOrderItems();
+            Set<OrderItem> addedItems = order.getOrderItems();
             for (OrderItem orderItem : addedItems) {
                 items.put(orderItem.getItemId(), orderItem.getAmount());
             }
-            List<UUID> failedItems = itemService.bookItems(items);
-
-            BookingDTO bookingDTO = new BookingDTO();
-            bookingDTO.setUuid(orderUUID);
-            bookingDTO.setFailedItems(new HashSet<>(failedItems));
-
+            BookingDTO bookingDTO = itemService.bookItems(items);
             tableRepository.save(order);
             if (eventLogger != null) {
                 eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
             }
             eventBus.post(new OrderFinalizedEvent(OrderTableToOrderDTO.toDTO(order)));
             return bookingDTO;
-        }
-        catch (ItemNotFoundException exception) {
+        } catch (ItemNotFoundException exception) {
             if (eventLogger != null) {
                 eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
             }
