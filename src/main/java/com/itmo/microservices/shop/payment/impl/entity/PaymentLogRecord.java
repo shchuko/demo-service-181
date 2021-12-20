@@ -29,10 +29,10 @@ public class PaymentLogRecord {
     private UUID userId;
 
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     private PaymentStatus paymentStatus;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     private FinancialOperationType financialOperationType;
 
     @Override
