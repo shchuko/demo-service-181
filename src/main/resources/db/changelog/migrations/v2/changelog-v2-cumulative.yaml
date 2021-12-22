@@ -2,3 +2,6 @@ databaseChangeLog:
   - include:
       file: 2021-12-07-01-create-transactions-processors-writeback.xml
       relativeToChangelogFile: true
+  - include:
+      file: 2021-12-22-01-booking-service-schema-creation.xml
+      relativeToChangelogFile: true
