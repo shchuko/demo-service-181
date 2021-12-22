@@ -13,7 +13,7 @@ public class BookingLogRecordDTO {
         this.bookingId = bookingId;
         this.itemId = itemId;
         this.amount = amount;
-        this.status = status;
+        this.status = status.getName();
         this.timestamp = timestamp;
     }
 
@@ -29,7 +29,7 @@ public class BookingLogRecordDTO {
     private Integer amount;
 
     @JsonProperty("status")
-    private BookingStatus status;
+    private String status;
 
     @JsonProperty("timestamp")
     private Long timestamp;
@@ -58,11 +58,11 @@ public class BookingLogRecordDTO {
         this.amount = amount;
     }
 
-    public BookingStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(BookingStatus status) {
+    public void setStatus(String status) {
         this.status = status;
     }
 
