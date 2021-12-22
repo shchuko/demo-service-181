@@ -26,6 +26,8 @@ import com.itmo.microservices.shop.order.impl.repository.IOrderStatusRepository;
 import com.itmo.microservices.shop.order.impl.repository.IOrderTableRepository;
 import com.itmo.microservices.shop.order.messaging.OrderCreatedEvent;
 import com.itmo.microservices.shop.order.messaging.OrderFinalizedEvent;
+import com.itmo.microservices.shop.payment.api.messaging.RefundOrderAnswerEvent;
+import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
 import kotlin.Suppress;
 import org.springframework.stereotype.Service;
 
@@ -247,6 +249,27 @@ public class OrderItemService implements IOrderService {
         tableRepository.save(order);
         // TODO remove booking
     }
+
+    @Subscribe
+    public void handleRefundAnswer(RefundOrderAnswerEvent event) {
+        if (PaymentStatusRepository.VALUES.FAILED.name().equals(event.getRefundStatus())) {
+            // TODO make another request
+        } else {
+            Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND");
+            if (refundStatusOptional.isEmpty()) {
+                if (eventLogger != null) {
+                    eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "REFUND");
+                }
+                throw new NoSuchElementException(String.format("No status with name %s", "REFUND"));
+            }
+            // TODO remove booking
+            OrderTable order = getOrderByUUID(event.getOrderUUID());
+            order.setStatus(refundStatusOptional.get());
+            tableRepository.save(order);
+        }
+    }
+
+    // TODO send RefundOrderRequestEvent, when delivery failed
 
     public Integer getAmount(UUID orderUUID) throws NoSuchElementException{
         OrderTable orderTable = this.getOrderByUUID(orderUUID);
