@@ -1,161 +1,134 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <databaseChangeLog
-        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
-        xmlns:pro="http://www.liquibase.org/xml/ns/pro"
-        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+  xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd
         http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd
         http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.3.xsd">
 
-    <changeSet id="2021-10-27-01-initial-schema-tables-create" author="Vladislav Yaroshchuk">
-        <createTable tableName="user">
-            <column name="id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="username" type="varchar(32)">
-                <constraints nullable="false" unique="true"/>
-            </column>
-            <column name="password_hash" type="varchar(255)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="is_admin" type="boolean" defaultValue="false">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
+  <changeSet id="2021-10-27-01-initial-schema-tables-create" author="Vladislav Yaroshchuk">
+    <createTable tableName="user">
+      <column name="id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="username" type="varchar(32)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+      <column name="password_hash" type="varchar(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="is_admin" type="boolean" defaultValue="false">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
 
-        <createTable tableName="order_table">
-            <column name="id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="time_created" type="bigint">
-                <constraints nullable="false"/>
-            </column>
-            <column name="delivery_duration" type="int">
-                <constraints nullable="true"/>
-            </column>
-            <column name="user_id" type="uuid">
-                <constraints nullable="false"/>
-            </column>
-            <column name="status_id" type="int">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
+    <createTable tableName="order_table">
+      <column name="id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="time_created" type="bigint">
+        <constraints nullable="false"/>
+      </column>
+      <column name="delivery_duration" type="int">
+        <constraints nullable="true"/>
+      </column>
+      <column name="user_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="status_id" type="int">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
 
-        <createTable tableName="order_status">
-            <column name="id" type="int" autoIncrement="true">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="name" type="varchar(50)">
-                <constraints nullable="false" unique="true"/>
-            </column>
-        </createTable>
+    <createTable tableName="order_status">
+      <column name="id" type="int" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="varchar(50)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+    </createTable>
 
-        <createTable tableName="order_item">
-            <column name="order_id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="item_id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="amount" type="int">
-                <constraints nullable="false"/>
-            </column>
-            <column name="price" type="int">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
+    <createTable tableName="order_item">
+      <column name="order_id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="item_id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="amount" type="int">
+        <constraints nullable="false"/>
+      </column>
+      <column name="price" type="int">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
 
-        <createTable tableName="payment_log_record">
-            <column name="id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="amount" type="int">
-                <constraints nullable="false"/>
-            </column>
-            <column name="timestamp" type="bigint">
-                <constraints nullable="false"/>
-            </column>
-            <column name="order_id" type="uuid">
-                <constraints nullable="false"/>
-            </column>
-            <column name="transaction_id" type="uuid">
-                <constraints nullable="false"/>
-            </column>
-            <column name="user_id" type="uuid">
-                <constraints nullable="false"/>
-            </column>
-            <column name="payment_status_id" type="int">
-                <constraints nullable="false"/>
-            </column>
-            <column name="financial_operation_type_id" type="int">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
+    <createTable tableName="payment_log_record">
+      <column name="id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="amount" type="int">
+        <constraints nullable="false"/>
+      </column>
+      <column name="timestamp" type="bigint">
+        <constraints nullable="false"/>
+      </column>
+      <column name="order_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="transaction_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="user_id" type="uuid">
+        <constraints nullable="false"/>
+      </column>
+      <column name="payment_status_id" type="int">
+        <constraints nullable="false"/>
+      </column>
+      <column name="financial_operation_type_id" type="int">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
 
-        <createTable tableName="financial_operation_type">
-            <column name="id" type="int" autoIncrement="true">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="name" type="varchar(50)">
-                <constraints nullable="false" unique="true"/>
-            </column>
-        </createTable>
+    <createTable tableName="financial_operation_type">
+      <column name="id" type="int" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="varchar(50)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+    </createTable>
 
-        <createTable tableName="payment_status">
-            <column name="id" type="int" autoIncrement="true">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="name" type="varchar(50)">
-                <constraints nullable="false" unique="true"/>
-            </column>
-        </createTable>
+    <createTable tableName="payment_status">
+      <column name="id" type="int" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="varchar(50)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+    </createTable>
 
-        <createTable tableName="item">
-            <column name="id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="name" type="varchar(255)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="price" type="int">
-                <constraints nullable="false"/>
-            </column>
-            <column name="description" type="varchar(255)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="amount" type="int">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-
-        <createTable tableName="booking_status">
-            <column name="id" type="int" autoIncrement="true">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="name" type="varchar(50)">
-                <constraints nullable="false" unique="true"/>
-            </column>
-        </createTable>
-
-        <createTable tableName="booking_log_record">
-            <column name="booking_id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="item_id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="amount" type="int">
-                <constraints nullable="false"/>
-            </column>
-            <column name="booking_status_id" type="int">
-                <constraints nullable="false"/>
-            </column>
-            <column name="timestamp" type="bigint">
-                <constraints nullable="true"/>
-            </column>
-        </createTable>
-    </changeSet>
+    <createTable tableName="item">
+      <column name="id" type="uuid">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="varchar(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="price" type="int">
+        <constraints nullable="false"/>
+      </column>
+      <column name="description" type="varchar(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="amount" type="int">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+  </changeSet>
 
 </databaseChangeLog>
