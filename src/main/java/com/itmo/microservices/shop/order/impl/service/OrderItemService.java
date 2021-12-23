@@ -4,6 +4,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
+import com.itmo.microservices.shop.catalog.api.model.BookingLogRecordDTO;
 import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
 import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
@@ -34,6 +35,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Suppress(names = "UnstableApiUsage")
@@ -90,6 +92,17 @@ public class OrderItemService implements IOrderService {
     @Override
     public void addItem(UUID orderUUID, UUID itemUUID, Integer amount) throws NoSuchElementException {
         OrderTable order = getOrderByUUID(orderUUID);
+
+        if (!order.getStatus().getName().equals("BOOKED")){
+            Optional<OrderStatus> collectingStatusOptional = statusRepository.findOrderStatusByName("COLLECTING");
+            if (collectingStatusOptional.isEmpty()) {
+                if (eventLogger != null) {
+                    eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "COLLECTING");
+                }
+                throw new NoSuchElementException(String.format("No status with name %s", "COLLECTING"));
+            }
+            order.setStatus(collectingStatusOptional.get());
+        }
         try {
             ItemDTO itemDTO = itemService.getByUuid(itemUUID);
             OrderItem item = new OrderItem();
@@ -118,7 +131,11 @@ public class OrderItemService implements IOrderService {
 
         BookingDTO bookingDTO = new BookingDTO();
         bookingDTO.setUuid(orderUUID);
-        bookingDTO.setFailedItems(new HashSet<>());
+        bookingDTO.setFailedItems(
+                itemService.getBookingById(order.getLastBookingId()).stream()
+                        .filter(it -> it.getStatus().getName().equals("FAILED"))
+                        .map(BookingLogRecordDTO::getItemId).collect(Collectors.toSet())
+        );
 
         if (eventLogger != null) {
             eventLogger.info(OrderServiceNotableEvent.I_ORDER_SET_TIME, orderUUID);
@@ -151,6 +168,7 @@ public class OrderItemService implements IOrderService {
                 items.put(orderItem.getItemId(), orderItem.getAmount());
             }
             BookingDTO bookingDTO = itemService.bookItems(items);
+            order.setLastBookingId(bookingDTO.getUuid());
             tableRepository.save(order);
             if (eventLogger != null) {
                 eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
@@ -215,7 +233,7 @@ public class OrderItemService implements IOrderService {
         for (OrderItem orderItem : bookedItems) {
             items.put(orderItem.getItemId(), orderItem.getAmount());
         }
-        // TODO delete booking
+        itemService.deleteBooking(order.getLastBookingId());
         eventBus.post(new RefundOrderRequestEvent(event.getOrderId(), new Double(getAmount(event.getOrderId()))));
         if (eventLogger != null) {
             eventLogger.error(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
@@ -248,7 +266,7 @@ public class OrderItemService implements IOrderService {
         OrderTable order = getOrderByUUID(event.getOrderID());
         order.setStatus(discardStatusOptional.get());
         tableRepository.save(order);
-        // TODO remove booking
+        itemService.deleteBooking(order.getLastBookingId());
     }
 
     @Subscribe
@@ -262,10 +280,10 @@ public class OrderItemService implements IOrderService {
                 }
                 throw new NoSuchElementException(String.format("No status with name %s", "REFUND"));
             }
-            // TODO remove booking
             OrderTable order = getOrderByUUID(event.getOrderUUID());
             order.setStatus(refundStatusOptional.get());
             tableRepository.save(order);
+            itemService.deleteBooking(order.getLastBookingId());
         }
     }
 
