@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -42,8 +43,8 @@ class OrderControllerTest extends NoWebSecurityTestCase {
         orderDTO.setItemsMap(new HashMap<>());
         orderDTO.setDeliveryDuration(values.slot);
         orderDTO.setPaymentHistory(new ArrayList<>());
-
-        Mockito.when(service.createOrder()).thenReturn(orderDTO);
+        UUID userUUID = UUID.randomUUID();
+        Mockito.when(service.createOrder(userUUID)).thenReturn(orderDTO);
         final String expectedResponseContent = mapper.writeValueAsString(orderDTO);
 
         mockMvc.perform(post("/orders"))
@@ -52,7 +53,7 @@ class OrderControllerTest extends NoWebSecurityTestCase {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(expectedResponseContent));
 
-        Mockito.verify(service).createOrder();
+        Mockito.verify(service).createOrder(userUUID);
         Mockito.verifyNoMoreInteractions(service);
     }
 }
