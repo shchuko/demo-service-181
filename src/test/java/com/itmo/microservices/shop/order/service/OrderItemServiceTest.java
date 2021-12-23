@@ -61,7 +61,7 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
             return order;
         });
 
-        orderItemService.createOrder();
+        orderItemService.createOrder(values.userUUID);
     }
 
     @Test
