@@ -12,3 +12,6 @@ databaseChangeLog:
   - include:
       file: 2021-12-22-01-insert-transactions-column-writeback.xml
       relativeToChangelogFile: true
+  - include:
+      file: 2021-12-22-02-insert-bookingId-column-writeback.xml
+      relativeToChangelogFile: true
