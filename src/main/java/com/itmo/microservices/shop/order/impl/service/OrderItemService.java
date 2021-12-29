@@ -5,7 +5,6 @@ import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
 import com.itmo.microservices.shop.catalog.api.model.BookingLogRecordDTO;
-import com.itmo.microservices.shop.order.api.exeptions.InvalidItemException;
 import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
 import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
@@ -120,7 +119,7 @@ public class OrderItemService implements IOrderService {
             if (eventLogger != null) {
                 eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
             }
-            throw new InvalidItemException(exception.getMessage());
+            throw new NoSuchElementException(exception.getMessage());
         }
     }
 
