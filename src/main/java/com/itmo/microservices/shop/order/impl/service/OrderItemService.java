@@ -27,7 +27,6 @@ import com.itmo.microservices.shop.order.impl.repository.IOrderTableRepository;
 import com.itmo.microservices.shop.order.messaging.OrderCreatedEvent;
 import com.itmo.microservices.shop.order.messaging.OrderFinalizedEvent;
 import com.itmo.microservices.shop.payment.api.messaging.RefundOrderAnswerEvent;
-import com.itmo.microservices.shop.payment.api.messaging.RefundOrderRequestEvent;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
 import kotlin.Suppress;
 import org.springframework.stereotype.Service;
@@ -216,7 +215,7 @@ public class OrderItemService implements IOrderService {
             items.put(orderItem.getItemId(), orderItem.getAmount());
         }
         // TODO delete booking
-        eventBus.post(new RefundOrderRequestEvent(event.getOrderId(), new Double(getAmount(event.getOrderId()))));
+        // TODO refund money
         if (eventLogger != null) {
             eventLogger.error(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
         }
@@ -254,6 +253,7 @@ public class OrderItemService implements IOrderService {
     @Subscribe
     public void handleRefundAnswer(RefundOrderAnswerEvent event) {
         if (PaymentStatusRepository.VALUES.FAILED.name().equals(event.getRefundStatus())) {
+            // TODO make another request
         } else {
             Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND");
             if (refundStatusOptional.isEmpty()) {
@@ -269,21 +269,12 @@ public class OrderItemService implements IOrderService {
         }
     }
 
+    // TODO send RefundOrderRequestEvent, when delivery failed
+
     public Integer getAmount(UUID orderUUID) throws NoSuchElementException{
         OrderTable orderTable = this.getOrderByUUID(orderUUID);
-        int amount = 0;
-        for (OrderItem item : orderTable.getOrderItems()) {
-            try {
-                ItemDTO itemDTO = itemService.getByUuid(item.getItemId());
-                amount += itemDTO.getAmount();
-            } catch (ItemNotFoundException exception) {
-                if (eventLogger != null) {
-                    eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
-                }
-                throw new NoSuchElementException(String.format(exception.getMessage()));
-            }
-        }
-        return amount;
+        // TODO: implement price collecting
+        return 10;
     }
 
     private OrderTable getOrderByUUID(UUID orderUUID) {
