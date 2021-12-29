@@ -1,7 +1,5 @@
 package com.itmo.microservices.shop.order.service;
 
-import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
-import com.itmo.microservices.shop.catalog.impl.service.ItemService;
 import com.itmo.microservices.shop.common.test.DefaultSecurityTestCase;
 import com.itmo.microservices.shop.order.HardcodedValues;
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
@@ -21,10 +19,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -38,8 +33,6 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
     private IOrderStatusRepository statusRepository;
     @MockBean
     private IOrderTableRepository tableRepository;
-    @MockBean
-    private ItemService itemService;
 
     @Autowired
     private OrderItemService orderItemService;
@@ -84,9 +77,6 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
     @Test
     void addItem() {
         OrderTable order = createOrderObject();
-        Mockito.when(itemService.getByUuid(values.itemUUID)).thenReturn(new ItemDTO(
-                values.itemUUID, "mock name", "mock description", values.price, values.amount
-        ));
         Mockito.when(itemRepository.save(Mockito.any())).then(
                 a -> {
                     assertNotNull(a.getArgument(0));
@@ -139,9 +129,6 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
     @Test
     void finalizeOrder() {
         OrderTable order = createOrderObject();
-        Mockito.when(itemService.bookItems(Mockito.any())).thenReturn(
-                new BookingDTO(UUID.randomUUID(), Collections.emptySet())
-        );
         Mockito.when(tableRepository.findById(values.orderUUID)).thenReturn(
                 Optional.of(order)
         );
@@ -168,10 +155,8 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
         OrderTable order = new OrderTable();
         order.setId(values.orderUUID);
         order.setTimeCreated(Instant.now().getEpochSecond());
-        order.setStatus(values.collectedStatus);
+        order.setStatus(values.bookedStatus);
         order.setUserId(values.userUUID);
-        HashSet<OrderItem> items = new HashSet<OrderItem>();
-        order.setOrderItems(items);
         return order;
     }
 }
