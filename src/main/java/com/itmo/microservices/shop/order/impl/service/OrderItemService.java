@@ -134,7 +134,7 @@ public class OrderItemService implements IOrderService {
         bookingDTO.setUuid(orderUUID);
         bookingDTO.setFailedItems(
                 itemService.getBookingById(order.getLastBookingId()).stream()
-                        .filter(it -> it.getStatus().getName().equals("FAILED"))
+                        .filter(it -> it.getStatus().equals("FAILED"))
                         .map(BookingLogRecordDTO::getItemId).collect(Collectors.toSet())
         );
 
