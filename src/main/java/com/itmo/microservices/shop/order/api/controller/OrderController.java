@@ -4,12 +4,10 @@ import com.itmo.microservices.shop.order.api.exeptions.OrderAlreadyBookedExcepti
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
 import com.itmo.microservices.shop.order.api.model.OrderDTO;
 import com.itmo.microservices.shop.order.api.service.IOrderService;
-import com.itmo.microservices.shop.user.impl.userdetails.UserAuth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletResponse;
@@ -29,9 +27,8 @@ public class OrderController {
     @PostMapping()
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
-    ResponseEntity<OrderDTO> createOrder(Authentication authentication) {
-        var auth = (UserAuth) authentication.getPrincipal();
-        return new ResponseEntity<>(orderService.createOrder(auth.getUuid()), HttpStatus.CREATED);
+    ResponseEntity<OrderDTO> createOrder() {
+        return new ResponseEntity<>(orderService.createOrder(), HttpStatus.CREATED);
     }
 
     @GetMapping("/{order_id}")
