@@ -117,7 +117,11 @@ public class OrderItemService implements IOrderService {
 
         BookingDTO bookingDTO = new BookingDTO();
         bookingDTO.setUuid(orderUUID);
-        bookingDTO.setFailedItems(new HashSet<>());
+        bookingDTO.setFailedItems(
+                itemService.getBookingById(order.getLastBookingId()).stream()
+                        .filter(it -> it.getStatus().equals("FAILED"))
+                        .map(BookingLogRecordDTO::getItemId).collect(Collectors.toSet())
+        );
 
         if (eventLogger != null) {
             eventLogger.info(OrderServiceNotableEvent.I_ORDER_SET_TIME, orderUUID);
