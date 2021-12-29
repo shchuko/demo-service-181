@@ -21,7 +21,6 @@ public class OrderTable {
   private Long timeCreated;
   private Integer deliveryDuration;
   private UUID userId;
-  private UUID lastBookingId;
 
   @ManyToOne(fetch = FetchType.EAGER)
   private OrderStatus status;
