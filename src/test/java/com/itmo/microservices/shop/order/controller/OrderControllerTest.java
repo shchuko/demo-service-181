@@ -1,7 +1,6 @@
 package com.itmo.microservices.shop.order.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.itmo.microservices.shop.common.security.WithMockCustomUser;
 import com.itmo.microservices.shop.common.test.NoWebSecurityTestCase;
 import com.itmo.microservices.shop.order.HardcodedValues;
 import com.itmo.microservices.shop.order.api.model.OrderDTO;
@@ -36,7 +35,6 @@ class OrderControllerTest extends NoWebSecurityTestCase {
     private final HardcodedValues values = new HardcodedValues();
 
     @Test
-    @WithMockCustomUser
     void createOrder() throws Exception {
         OrderDTO orderDTO = new OrderDTO();
         orderDTO.setUuid(values.orderUUID);
@@ -45,15 +43,17 @@ class OrderControllerTest extends NoWebSecurityTestCase {
         orderDTO.setItemsMap(new HashMap<>());
         orderDTO.setDeliveryDuration(values.slot);
         orderDTO.setPaymentHistory(new ArrayList<>());
-        Mockito.when(service.createOrder(UUID.fromString("224ec6ce-3fea-11ec-9356-0242ac130003"))).thenReturn(orderDTO);
+        UUID userUUID = UUID.randomUUID();
+        Mockito.when(service.createOrder(userUUID)).thenReturn(orderDTO);
         final String expectedResponseContent = mapper.writeValueAsString(orderDTO);
 
         mockMvc.perform(post("/orders"))
                 .andDo(print())
                 .andExpect(status().isCreated())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(expectedResponseContent));
 
-        Mockito.verify(service).createOrder(UUID.fromString("224ec6ce-3fea-11ec-9356-0242ac130003"));
+        Mockito.verify(service).createOrder(userUUID);
         Mockito.verifyNoMoreInteractions(service);
     }
 }
