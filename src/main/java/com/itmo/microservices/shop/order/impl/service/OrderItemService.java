@@ -60,7 +60,7 @@ public class OrderItemService implements IOrderService {
     }
 
     @Override
-    public OrderDTO createOrder(UUID userUUID) throws NoSuchElementException {
+    public OrderDTO createOrder() throws NoSuchElementException {
         Optional<OrderStatus> collectingStatusOptional = statusRepository.findOrderStatusByName("COLLECTING");
         if (collectingStatusOptional.isEmpty()) {
             if (eventLogger != null) {
@@ -72,7 +72,7 @@ public class OrderItemService implements IOrderService {
         OrderTable order = new OrderTable();
         order.setTimeCreated(Instant.now().getEpochSecond());
         order.setStatus(collectingStatusOptional.get());
-        order.setUserId(userUUID);
+        order.setUserId(UUID.randomUUID()); // mock user UUID
         tableRepository.save(order);
 
         if (eventLogger != null) {
