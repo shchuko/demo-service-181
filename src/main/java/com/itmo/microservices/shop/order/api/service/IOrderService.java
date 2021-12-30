@@ -8,7 +8,7 @@ import java.util.UUID;
 
 
 public interface IOrderService {
-    OrderDTO createOrder();
+    OrderDTO createOrder(UUID userUUID);
     OrderDTO getOrder(UUID orderUUID);
     void addItem(UUID orderUUID, UUID itemUUID, Integer amount);
     BookingDTO setTime(UUID orderUUID, Integer slot);

@@ -4,6 +4,8 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
+import com.itmo.microservices.shop.catalog.api.model.BookingLogRecordDTO;
+import com.itmo.microservices.shop.order.api.exeptions.InvalidItemException;
 import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
 import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
@@ -27,12 +29,14 @@ import com.itmo.microservices.shop.order.impl.repository.IOrderTableRepository;
 import com.itmo.microservices.shop.order.messaging.OrderCreatedEvent;
 import com.itmo.microservices.shop.order.messaging.OrderFinalizedEvent;
 import com.itmo.microservices.shop.payment.api.messaging.RefundOrderAnswerEvent;
+import com.itmo.microservices.shop.payment.api.messaging.RefundOrderRequestEvent;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
 import kotlin.Suppress;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Suppress(names = "UnstableApiUsage")
@@ -57,7 +61,7 @@ public class OrderItemService implements IOrderService {
     }
 
     @Override
-    public OrderDTO createOrder() throws NoSuchElementException {
+    public OrderDTO createOrder(UUID userUUID) throws NoSuchElementException {
         Optional<OrderStatus> collectingStatusOptional = statusRepository.findOrderStatusByName("COLLECTING");
         if (collectingStatusOptional.isEmpty()) {
             if (eventLogger != null) {
@@ -69,7 +73,7 @@ public class OrderItemService implements IOrderService {
         OrderTable order = new OrderTable();
         order.setTimeCreated(Instant.now().getEpochSecond());
         order.setStatus(collectingStatusOptional.get());
-        order.setUserId(UUID.randomUUID()); // mock user UUID
+        order.setUserId(userUUID);
         tableRepository.save(order);
 
         if (eventLogger != null) {
@@ -89,6 +93,17 @@ public class OrderItemService implements IOrderService {
     @Override
     public void addItem(UUID orderUUID, UUID itemUUID, Integer amount) throws NoSuchElementException {
         OrderTable order = getOrderByUUID(orderUUID);
+
+        if (!order.getStatus().getName().equals("BOOKED")){
+            Optional<OrderStatus> collectingStatusOptional = statusRepository.findOrderStatusByName("COLLECTING");
+            if (collectingStatusOptional.isEmpty()) {
+                if (eventLogger != null) {
+                    eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "COLLECTING");
+                }
+                throw new NoSuchElementException(String.format("No status with name %s", "COLLECTING"));
+            }
+            order.setStatus(collectingStatusOptional.get());
+        }
         try {
             ItemDTO itemDTO = itemService.getByUuid(itemUUID);
             OrderItem item = new OrderItem();
@@ -105,7 +120,7 @@ public class OrderItemService implements IOrderService {
             if (eventLogger != null) {
                 eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
             }
-            throw new NoSuchElementException(exception.getMessage());
+            throw new InvalidItemException(exception.getMessage());
         }
     }
 
@@ -154,6 +169,7 @@ public class OrderItemService implements IOrderService {
                 items.put(orderItem.getItemId(), orderItem.getAmount());
             }
             BookingDTO bookingDTO = itemService.bookItems(items);
+            order.setLastBookingId(bookingDTO.getUuid());
             tableRepository.save(order);
             if (eventLogger != null) {
                 eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
@@ -218,8 +234,8 @@ public class OrderItemService implements IOrderService {
         for (OrderItem orderItem : bookedItems) {
             items.put(orderItem.getItemId(), orderItem.getAmount());
         }
-        // TODO delete booking
-        // TODO refund money
+        itemService.deleteBooking(order.getLastBookingId());
+        eventBus.post(new RefundOrderRequestEvent(event.getOrderId(), new Double(getAmount(event.getOrderId()))));
         if (eventLogger != null) {
             eventLogger.error(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
         }
@@ -251,13 +267,12 @@ public class OrderItemService implements IOrderService {
         OrderTable order = getOrderByUUID(event.getOrderID());
         order.setStatus(discardStatusOptional.get());
         tableRepository.save(order);
-        // TODO remove booking
+        itemService.deleteBooking(order.getLastBookingId());
     }
 
     @Subscribe
     public void handleRefundAnswer(RefundOrderAnswerEvent event) {
         if (PaymentStatusRepository.VALUES.FAILED.name().equals(event.getRefundStatus())) {
-            // TODO make another request
         } else {
             Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND");
             if (refundStatusOptional.isEmpty()) {
@@ -266,19 +281,28 @@ public class OrderItemService implements IOrderService {
                 }
                 throw new NoSuchElementException(String.format("No status with name %s", "REFUND"));
             }
-            // TODO remove booking
             OrderTable order = getOrderByUUID(event.getOrderUUID());
             order.setStatus(refundStatusOptional.get());
             tableRepository.save(order);
+            itemService.deleteBooking(order.getLastBookingId());
         }
     }
 
-    // TODO send RefundOrderRequestEvent, when delivery failed
-
     public Integer getAmount(UUID orderUUID) throws NoSuchElementException{
         OrderTable orderTable = this.getOrderByUUID(orderUUID);
-        // TODO: implement price collecting
-        return 10;
+        int amount = 0;
+        for (OrderItem item : orderTable.getOrderItems()) {
+            try {
+                ItemDTO itemDTO = itemService.getByUuid(item.getItemId());
+                amount += itemDTO.getAmount();
+            } catch (ItemNotFoundException exception) {
+                if (eventLogger != null) {
+                    eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
+                }
+                throw new NoSuchElementException(String.format(exception.getMessage()));
+            }
+        }
+        return amount;
     }
 
     private OrderTable getOrderByUUID(UUID orderUUID) {
