@@ -4,16 +4,16 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
-import com.itmo.microservices.shop.catalog.api.model.BookingLogRecordDTO;
-import com.itmo.microservices.shop.order.api.exeptions.InvalidItemException;
-import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
-import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
-import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
-import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionSuccessEvent;
-import com.itmo.microservices.shop.order.api.messaging.OrderStartDeliveryTransactionEvent;
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
+import com.itmo.microservices.shop.catalog.api.model.BookingLogRecordDTO;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.api.service.ItemService;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionSuccessEvent;
+import com.itmo.microservices.shop.order.api.exeptions.InvalidItemException;
+import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
+import com.itmo.microservices.shop.order.api.messaging.OrderStartDeliveryTransactionEvent;
+import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
 import com.itmo.microservices.shop.order.api.model.OrderDTO;
 import com.itmo.microservices.shop.order.api.service.IOrderService;
@@ -27,13 +27,13 @@ import com.itmo.microservices.shop.order.impl.repository.IOrderStatusRepository;
 import com.itmo.microservices.shop.order.impl.repository.IOrderTableRepository;
 import com.itmo.microservices.shop.order.messaging.OrderCreatedEvent;
 import com.itmo.microservices.shop.payment.api.messaging.RefundOrderAnswerEvent;
-import com.itmo.microservices.shop.payment.api.messaging.RefundOrderRequestEvent;
-import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
 import kotlin.Suppress;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -220,25 +220,25 @@ public class OrderItemService implements IOrderService {
 
     @Subscribe
     public void handleFailedDelivery(DeliveryTransactionFailedEvent event) {
-        OrderTable order = getOrderByUUID(event.getOrderId());
-        Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND ");
-        if (refundStatusOptional.isEmpty()) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "REFUND ");
-            }
-            throw new NoSuchElementException(String.format("No status with name %s", "REFUND "));
-        }
-        order.setStatus(refundStatusOptional.get());
-        HashMap<UUID, Integer> items = new HashMap<>();
-        Set<OrderItem> bookedItems =  order.getOrderItems();
-        for (OrderItem orderItem : bookedItems) {
-            items.put(orderItem.getItemId(), orderItem.getAmount());
-        }
-        itemService.cancelBooking(order.getLastBookingId());
-        eventBus.post(new RefundOrderRequestEvent(event.getOrderId(), new Double(getAmount(event.getOrderId()))));
-        if (eventLogger != null) {
-            eventLogger.error(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
-        }
+//        OrderTable order = getOrderByUUID(event.getOrderId());
+//        Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND ");
+//        if (refundStatusOptional.isEmpty()) {
+//            if (eventLogger != null) {
+//                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "REFUND ");
+//            }
+//            throw new NoSuchElementException(String.format("No status with name %s", "REFUND "));
+//        }
+//        order.setStatus(refundStatusOptional.get());
+//        HashMap<UUID, Integer> items = new HashMap<>();
+//        Set<OrderItem> bookedItems =  order.getOrderItems();
+//        for (OrderItem orderItem : bookedItems) {
+//            items.put(orderItem.getItemId(), orderItem.getAmount());
+//        }
+//        itemService.cancelBooking(order.getLastBookingId());
+//        eventBus.post(new RefundOrderRequestEvent(event.getOrderId(), new Double(getAmount(event.getOrderId()))));
+//        if (eventLogger != null) {
+//            eventLogger.error(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
+//        }
     }
 
     @Subscribe
@@ -272,20 +272,20 @@ public class OrderItemService implements IOrderService {
 
     @Subscribe
     public void handleRefundAnswer(RefundOrderAnswerEvent event) {
-        if (PaymentStatusRepository.VALUES.FAILED.name().equals(event.getRefundStatus())) {
-        } else {
-            Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND");
-            if (refundStatusOptional.isEmpty()) {
-                if (eventLogger != null) {
-                    eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "REFUND");
-                }
-                throw new NoSuchElementException(String.format("No status with name %s", "REFUND"));
-            }
-            OrderTable order = getOrderByUUID(event.getOrderUUID());
-            order.setStatus(refundStatusOptional.get());
-            tableRepository.save(order);
-            itemService.cancelBooking(order.getLastBookingId());
-        }
+//        if (PaymentStatusRepository.VALUES.FAILED.name().equals(event.getRefundStatus())) {
+//        } else {
+//            Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND");
+//            if (refundStatusOptional.isEmpty()) {
+//                if (eventLogger != null) {
+//                    eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "REFUND");
+//                }
+//                throw new NoSuchElementException(String.format("No status with name %s", "REFUND"));
+//            }
+//            OrderTable order = getOrderByUUID(event.getOrderUUID());
+//            order.setStatus(refundStatusOptional.get());
+//            tableRepository.save(order);
+//            itemService.cancelBooking(order.getLastBookingId());
+//        }
     }
 
     public Integer getAmount(UUID orderUUID) throws NoSuchElementException{
