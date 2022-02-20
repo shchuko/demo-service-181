@@ -14,7 +14,6 @@ import com.itmo.microservices.shop.order.api.messaging.OrderStartDeliveryTransac
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.api.service.ItemService;
-import com.itmo.microservices.shop.order.api.exeptions.OrderAlreadyBookedException;
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
 import com.itmo.microservices.shop.order.api.model.OrderDTO;
 import com.itmo.microservices.shop.order.api.service.IOrderService;
@@ -27,7 +26,6 @@ import com.itmo.microservices.shop.order.impl.repository.IOrderItemRepository;
 import com.itmo.microservices.shop.order.impl.repository.IOrderStatusRepository;
 import com.itmo.microservices.shop.order.impl.repository.IOrderTableRepository;
 import com.itmo.microservices.shop.order.messaging.OrderCreatedEvent;
-import com.itmo.microservices.shop.order.messaging.OrderFinalizedEvent;
 import com.itmo.microservices.shop.payment.api.messaging.RefundOrderAnswerEvent;
 import com.itmo.microservices.shop.payment.api.messaging.RefundOrderRequestEvent;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
@@ -105,7 +103,7 @@ public class OrderItemService implements IOrderService {
             order.setStatus(collectingStatusOptional.get());
         }
         try {
-            ItemDTO itemDTO = itemService.getByUuid(itemUUID);
+            ItemDTO itemDTO = itemService.describeItem(itemUUID);
             OrderItem item = new OrderItem();
             item.setOrderId(orderUUID);
             item.setPrice(itemDTO.getPrice());
@@ -133,7 +131,7 @@ public class OrderItemService implements IOrderService {
         BookingDTO bookingDTO = new BookingDTO();
         bookingDTO.setUuid(orderUUID);
         bookingDTO.setFailedItems(
-                itemService.getBookingById(order.getLastBookingId()).stream()
+                itemService.listBookingLogRecords(order.getLastBookingId()).stream()
                         .filter(it -> it.getStatus().equals("FAILED"))
                         .map(BookingLogRecordDTO::getItemId).collect(Collectors.toSet())
         );
@@ -146,42 +144,44 @@ public class OrderItemService implements IOrderService {
 
     @Override
     public BookingDTO finalizeOrder(UUID orderUUID) throws NoSuchElementException {
-        Optional<OrderStatus> finalizeStatusOptional = statusRepository.findOrderStatusByName("BOOKED");
-        if (finalizeStatusOptional.isEmpty()) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "BOOKED");
-            }
-            throw new NoSuchElementException(String.format("No status with name %s", "BOOKED"));
-        }
-        try {
-            OrderTable order = getOrderByUUID(orderUUID);
-            if (Objects.equals(order.getStatus().getName(), "BOOKED")) {
-                if (eventLogger != null) {
-                    eventLogger.error(OrderServiceNotableEvent.E_ORDER_ALREADY_BOOKED, orderUUID);
-                }
-                throw new OrderAlreadyBookedException(String.format("Order with uuid %s already booked", orderUUID));
-            }
-            order.setStatus(finalizeStatusOptional.get());
-
-            HashMap<UUID, Integer> items = new HashMap<>();
-            Set<OrderItem> addedItems = order.getOrderItems();
-            for (OrderItem orderItem : addedItems) {
-                items.put(orderItem.getItemId(), orderItem.getAmount());
-            }
-            BookingDTO bookingDTO = itemService.bookItems(items);
-            order.setLastBookingId(bookingDTO.getUuid());
-            tableRepository.save(order);
-            if (eventLogger != null) {
-                eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
-            }
-            eventBus.post(new OrderFinalizedEvent(OrderTableToOrderDTO.toDTO(order)));
-            return bookingDTO;
-        } catch (ItemNotFoundException exception) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
-            }
-            throw new NoSuchElementException(exception.getMessage());
-        }
+//        TODO will be updated to be in sync with catalog service updates
+        throw new RuntimeException("Not implemented yet");
+//        Optional<OrderStatus> finalizeStatusOptional = statusRepository.findOrderStatusByName("BOOKED");
+//        if (finalizeStatusOptional.isEmpty()) {
+//            if (eventLogger != null) {
+//                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "BOOKED");
+//            }
+//            throw new NoSuchElementException(String.format("No status with name %s", "BOOKED"));
+//        }
+//        try {
+//            OrderTable order = getOrderByUUID(orderUUID);
+//            if (Objects.equals(order.getStatus().getName(), "BOOKED")) {
+//                if (eventLogger != null) {
+//                    eventLogger.error(OrderServiceNotableEvent.E_ORDER_ALREADY_BOOKED, orderUUID);
+//                }
+//                throw new OrderAlreadyBookedException(String.format("Order with uuid %s already booked", orderUUID));
+//            }
+//            order.setStatus(finalizeStatusOptional.get());
+//
+//            HashMap<UUID, Integer> items = new HashMap<>();
+//            Set<OrderItem> addedItems = order.getOrderItems();
+//            for (OrderItem orderItem : addedItems) {
+//                items.put(orderItem.getItemId(), orderItem.getAmount());
+//            }
+//            BookingDTO bookingDTO = itemService.book(items);
+//            order.setLastBookingId(bookingDTO.getUuid());
+//            tableRepository.save(order);
+//            if (eventLogger != null) {
+//                eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
+//            }
+//            eventBus.post(new OrderFinalizedEvent(OrderTableToOrderDTO.toDTO(order)));
+//            return bookingDTO;
+//        } catch (ItemNotFoundException exception) {
+//            if (eventLogger != null) {
+//                eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
+//            }
+//            throw new NoSuchElementException(exception.getMessage());
+//        }
     }
 
     @Subscribe
@@ -234,7 +234,7 @@ public class OrderItemService implements IOrderService {
         for (OrderItem orderItem : bookedItems) {
             items.put(orderItem.getItemId(), orderItem.getAmount());
         }
-        itemService.deleteBooking(order.getLastBookingId());
+        itemService.cancelBooking(order.getLastBookingId());
         eventBus.post(new RefundOrderRequestEvent(event.getOrderId(), new Double(getAmount(event.getOrderId()))));
         if (eventLogger != null) {
             eventLogger.error(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
@@ -267,7 +267,7 @@ public class OrderItemService implements IOrderService {
         OrderTable order = getOrderByUUID(event.getOrderID());
         order.setStatus(discardStatusOptional.get());
         tableRepository.save(order);
-        itemService.deleteBooking(order.getLastBookingId());
+        itemService.cancelBooking(order.getLastBookingId());
     }
 
     @Subscribe
@@ -284,7 +284,7 @@ public class OrderItemService implements IOrderService {
             OrderTable order = getOrderByUUID(event.getOrderUUID());
             order.setStatus(refundStatusOptional.get());
             tableRepository.save(order);
-            itemService.deleteBooking(order.getLastBookingId());
+            itemService.cancelBooking(order.getLastBookingId());
         }
     }
 
@@ -293,7 +293,7 @@ public class OrderItemService implements IOrderService {
         int amount = 0;
         for (OrderItem item : orderTable.getOrderItems()) {
             try {
-                ItemDTO itemDTO = itemService.getByUuid(item.getItemId());
+                ItemDTO itemDTO = itemService.describeItem(item.getItemId());
                 amount += itemDTO.getAmount();
             } catch (ItemNotFoundException exception) {
                 if (eventLogger != null) {
