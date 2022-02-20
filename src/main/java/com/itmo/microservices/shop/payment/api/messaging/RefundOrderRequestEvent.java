@@ -1,18 +1,46 @@
 package com.itmo.microservices.shop.payment.api.messaging;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
-@AllArgsConstructor
-@Getter
-@Setter
 public class RefundOrderRequestEvent {
+    private UUID orderId;
+    private UUID userId;
+    private int amount;
+
+    public RefundOrderRequestEvent() {
+    }
+
+    public RefundOrderRequestEvent(@NotNull UUID orderId, @NotNull UUID userId, int amount) {
+        this.orderId = orderId;
+        this.userId = userId;
+        this.amount = amount;
+    }
+
     @NotNull
-    private UUID orderUUID;
+    public UUID getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(@NotNull UUID orderId) {
+        this.orderId = orderId;
+    }
+
     @NotNull
-    private Double price;
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(@NotNull UUID userId) {
+        this.userId = userId;
+    }
+
+    public int getAmount() {
+        return amount;
+    }
+
+    public void setAmount(int amount) {
+        this.amount = amount;
+    }
 }
