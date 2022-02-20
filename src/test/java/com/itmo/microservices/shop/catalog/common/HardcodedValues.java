@@ -38,6 +38,6 @@ public class HardcodedValues {
     }
 
     public static Item fromDtoToEntity(ItemDTO item) {
-        return new Item(null, item.getName(), item.getPrice(), item.getDescription(), item.getAmount());
+        return new Item(item.getId(), item.getName(), item.getPrice(), item.getDescription(), item.getAmount());
     }
 }

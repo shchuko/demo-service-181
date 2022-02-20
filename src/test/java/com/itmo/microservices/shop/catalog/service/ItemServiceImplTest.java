@@ -3,7 +3,7 @@ package com.itmo.microservices.shop.catalog.service;
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
 import com.itmo.microservices.shop.catalog.common.HardcodedValues;
 import com.itmo.microservices.shop.catalog.impl.repository.ItemRepository;
-import com.itmo.microservices.shop.catalog.impl.service.ItemService;
+import com.itmo.microservices.shop.catalog.impl.service.ItemServiceImpl;
 import com.itmo.microservices.shop.common.test.DefaultSecurityTestCase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
-public class ItemServiceTest extends DefaultSecurityTestCase {
+public class ItemServiceImplTest extends DefaultSecurityTestCase {
 
     private final HardcodedValues hardcodedValues = new HardcodedValues();
 
@@ -26,14 +26,14 @@ public class ItemServiceTest extends DefaultSecurityTestCase {
     private ItemRepository itemRepository;
 
     @Autowired
-    private ItemService itemService;
+    private ItemServiceImpl itemService;
 
     @Test
     public void whenGetItems_thenReturnAllItemsIncludesWithZeroAmount() {
         Mockito.when(itemRepository.findAll())
                 .thenReturn(hardcodedValues.mockedItems);
 
-        var test = itemService.getItems();
+        var test = itemService.listItems();
         var correct = HardcodedValues.fromEntityToDto(hardcodedValues.mockedItems);
 
         Assertions.assertEquals(correct, test);
@@ -49,7 +49,7 @@ public class ItemServiceTest extends DefaultSecurityTestCase {
         Mockito.when(itemRepository.findAllByAmountGreaterThan(0))
                 .thenReturn(available);
 
-        var test = itemService.getAvailableItems();
+        var test = itemService.listAvailableItems();
         var correct = HardcodedValues.fromEntityToDto(available);
 
         Assertions.assertEquals(correct, test);
@@ -63,7 +63,7 @@ public class ItemServiceTest extends DefaultSecurityTestCase {
         Mockito.when(itemRepository.findById(hardcodedValues.mockedUUID))
                 .thenReturn(Optional.of(hardcodedValues.mockedItem));
 
-        var test = itemService.getCountOfItem(hardcodedValues.mockedUUID);
+        var test = itemService.getItemCount(hardcodedValues.mockedUUID);
         var correct = (int) hardcodedValues.mockedItem.getAmount();
 
         Assertions.assertEquals(correct, test);
@@ -78,7 +78,7 @@ public class ItemServiceTest extends DefaultSecurityTestCase {
                 .thenReturn(Optional.empty());
 
         try {
-            itemService.getCountOfItem(hardcodedValues.mockedUUID);
+            itemService.getItemCount(hardcodedValues.mockedUUID);
             Assertions.fail("exception wasn't throw");
         } catch (Exception test) {
             Assertions.assertEquals(ItemNotFoundException.class, test.getClass(), "throw class is wrong");
