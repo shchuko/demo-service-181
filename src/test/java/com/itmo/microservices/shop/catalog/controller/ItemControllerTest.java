@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.common.HardcodedValues;
-import com.itmo.microservices.shop.catalog.impl.service.ItemService;
+import com.itmo.microservices.shop.catalog.impl.service.ItemServiceImpl;
 import com.itmo.microservices.shop.common.test.NoWebSecurityTestCase;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -35,7 +35,7 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
     @Autowired
     private MockMvc mockMvc;
     @MockBean
-    private ItemService itemService;
+    private ItemServiceImpl itemService;
 
     private final static ObjectMapper mapper = new ObjectMapper();
 
@@ -48,8 +48,8 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
     //region getAllItemsBasedOnAvailability
     @Test
     public void whenGet_ParamAvailableTrue_thenReturnItemsWithCountMoreThanZero() throws Exception {
-        Mockito.when(itemService.getAvailableItems()).thenReturn(availableItems);
-        Mockito.when(itemService.getItems()).thenReturn(hardcodedValues.mockedItemsDto);
+        Mockito.when(itemService.listAvailableItems()).thenReturn(availableItems);
+        Mockito.when(itemService.listItems()).thenReturn(hardcodedValues.mockedItemsDto);
 
         final String expectedResponseContent = mapper.writeValueAsString(availableItems);
 
@@ -59,14 +59,14 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(expectedResponseContent));
-        Mockito.verify(itemService).getAvailableItems();
+        Mockito.verify(itemService).listAvailableItems();
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
     @Test
     public void whenGet_ParamAvailableFalse_thenReturnNotAvailableItems() throws Exception {
-        Mockito.when(itemService.getUnavailableItems()).thenReturn(notAvailableItems);
-        Mockito.when(itemService.getItems()).thenReturn(hardcodedValues.mockedItemsDto);
+        Mockito.when(itemService.listUnavailableItems()).thenReturn(notAvailableItems);
+        Mockito.when(itemService.listItems()).thenReturn(hardcodedValues.mockedItemsDto);
 
         final String expectedResponseContent = mapper.writeValueAsString(notAvailableItems);
 
@@ -76,14 +76,14 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(expectedResponseContent));
-        Mockito.verify(itemService).getUnavailableItems();
+        Mockito.verify(itemService).listUnavailableItems();
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
     @Test
     public void whenGet_ParamAvailableIsNotExisted_thenReturnAllItems() throws Exception {
-        Mockito.when(itemService.getAvailableItems()).thenReturn(availableItems);
-        Mockito.when(itemService.getItems()).thenReturn(hardcodedValues.mockedItemsDto);
+        Mockito.when(itemService.listAvailableItems()).thenReturn(availableItems);
+        Mockito.when(itemService.listItems()).thenReturn(hardcodedValues.mockedItemsDto);
 
         final String expectedResponseContent = mapper.writeValueAsString(hardcodedValues.mockedItemsDto);
 
@@ -93,7 +93,7 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(expectedResponseContent));
 
-        Mockito.verify(itemService).getItems();
+        Mockito.verify(itemService).listItems();
         Mockito.verifyNoMoreInteractions(itemService);
     }
     //endregion
@@ -122,7 +122,7 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
     //region getCountOfItem
     @Test
     public void whenGet_Id_ItemExisted_thenReturnCountOfItem() throws Exception {
-        Mockito.doReturn(hardcodedValues.mockedItem.getAmount()).when(itemService).getCountOfItem(isA(UUID.class));
+        Mockito.doReturn(hardcodedValues.mockedItem.getAmount()).when(itemService).getItemCount(isA(UUID.class));
 
         final String expectedResponseContent = hardcodedValues.mockedItem.getAmount().toString();
 
@@ -132,20 +132,20 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(expectedResponseContent));
 
-        Mockito.verify(itemService).getCountOfItem(Mockito.any(UUID.class));
+        Mockito.verify(itemService).getItemCount(Mockito.any(UUID.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
     @Test
     public void whenGet_Id_ItemNotExisted_thenThrowItemNotFoundException() throws Exception {
-        Mockito.when(itemService.getCountOfItem(Mockito.any(UUID.class)))
+        Mockito.when(itemService.getItemCount(Mockito.any(UUID.class)))
                 .thenThrow(ItemNotFoundException.class);
 
         this.mockMvc.perform(get("/items/{id}", UUID.randomUUID()))
                 .andDo(print())
                 .andExpect(status().isNotFound());
 
-        Mockito.verify(itemService).getCountOfItem(Mockito.any(UUID.class));
+        Mockito.verify(itemService).getItemCount(Mockito.any(UUID.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
     //endregion
@@ -153,7 +153,7 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
     //region updateItem
     @Test
     public void whenPut_Id_thenResponseBodyIsEmptyAndStatusIsOk() throws Exception {
-        Mockito.doNothing().when(itemService).updateItem(isA(UUID.class), isA(ItemDTO.class));
+        Mockito.doNothing().when(itemService).updateItem(isA(ItemDTO.class));
 
         final String requestedBodyContent = mapper.writeValueAsString(hardcodedValues.mockedItemDTO);
 
@@ -163,14 +163,14 @@ public class ItemControllerTest extends NoWebSecurityTestCase {
                 .andDo(print())
                 .andExpect(status().isOk());
 
-        Mockito.verify(itemService).updateItem(Mockito.any(UUID.class), Mockito.any(ItemDTO.class));
+        Mockito.verify(itemService).updateItem(Mockito.any(ItemDTO.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
     @Test
     public void whenPut_NotExistedId_thenReturnStatusBadRequest() throws Exception {
         Mockito.doThrow(ItemNotFoundException.class).when(itemService)
-                .updateItem(isA(UUID.class), isA(ItemDTO.class));
+                .updateItem(isA(ItemDTO.class));
 
         this.mockMvc.perform(put("/items/{id}", UUID.randomUUID()))
                 .andDo(print())

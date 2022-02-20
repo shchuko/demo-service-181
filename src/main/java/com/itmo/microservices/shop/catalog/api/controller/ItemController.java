@@ -2,7 +2,7 @@ package com.itmo.microservices.shop.catalog.api.controller;
 
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
-import com.itmo.microservices.shop.catalog.impl.service.ItemService;
+import com.itmo.microservices.shop.catalog.impl.service.ItemServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.AllArgsConstructor;
@@ -21,19 +21,19 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ItemController {
 
-    private ItemService itemService;
+    private ItemServiceImpl itemService;
 
     @GetMapping()
     @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     ResponseEntity<List<ItemDTO>> getAllItemsBasedOnAvailability(
             @RequestParam(value = "available", required = false) Boolean available) {
         if (available == null) {
-            return new ResponseEntity<>(itemService.getItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.listItems(), HttpStatus.OK);
         }
         if (available) {
-            return new ResponseEntity<>(itemService.getAvailableItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.listAvailableItems(), HttpStatus.OK);
         } else {
-            return new ResponseEntity<>(itemService.getUnavailableItems(), HttpStatus.OK);
+            return new ResponseEntity<>(itemService.listUnavailableItems(), HttpStatus.OK);
         }
     }
 
@@ -41,7 +41,7 @@ public class ItemController {
     @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     ResponseEntity<Integer> getCountOfItem(@PathVariable @DecimalMin("0") UUID id)
             throws ItemNotFoundException {
-        return new ResponseEntity<>(itemService.getCountOfItem(id), HttpStatus.OK);
+        return new ResponseEntity<>(itemService.getItemCount(id), HttpStatus.OK);
     }
 
     @PutMapping("/{id}")
@@ -49,7 +49,8 @@ public class ItemController {
     @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
     void updateItem(@PathVariable @DecimalMin("0") UUID id, @RequestBody ItemDTO itemDTO)
             throws ItemNotFoundException {
-        itemService.updateItem(id, itemDTO);
+        itemDTO.setId(id);
+        itemService.updateItem(itemDTO);
     }
 
     @PostMapping()

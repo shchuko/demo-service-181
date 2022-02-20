@@ -3,7 +3,7 @@ package com.itmo.microservices.shop.catalog.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.common.HardcodedValues;
-import com.itmo.microservices.shop.catalog.impl.service.ItemService;
+import com.itmo.microservices.shop.catalog.impl.service.ItemServiceImpl;
 import com.itmo.microservices.shop.common.security.WithMockCustomUser;
 import com.itmo.microservices.shop.common.test.DefaultSecurityTestCase;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     @Autowired
     private MockMvc mockMvc;
     @MockBean
-    private ItemService itemService;
+    private ItemServiceImpl itemService;
 
     private final static ObjectMapper mapper = new ObjectMapper();
 
@@ -47,7 +47,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     //region getAllItemsBasedOnAvailability
     @Test
     public void whenGetAvailableItemsWithoutAuthentication_thenReturnStatusForbidden() throws Exception {
-        Mockito.when(itemService.getAvailableItems()).thenReturn(availableItems);
+        Mockito.when(itemService.listAvailableItems()).thenReturn(availableItems);
 
         this.mockMvc.perform(get("/items")
                         .param("available", "true"))
@@ -60,7 +60,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     @Test
     @WithMockCustomUser
     public void whenGetAvailableItemsWithAuthentication_thenReturnStatusOKAndAvailableItems() throws Exception {
-        Mockito.when(itemService.getAvailableItems()).thenReturn(availableItems);
+        Mockito.when(itemService.listAvailableItems()).thenReturn(availableItems);
 
         final String expectedResponseContent = mapper.writeValueAsString(availableItems);
 
@@ -71,13 +71,13 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
                 .andExpect(content().string(expectedResponseContent))
                 .andExpect(status().isOk());
 
-        Mockito.verify(itemService).getAvailableItems();
+        Mockito.verify(itemService).listAvailableItems();
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
     @Test
     public void whenGetUnavailableItemsWithoutAuthentication_thenReturnStatusForbidden() throws Exception {
-        Mockito.when(itemService.getAvailableItems()).thenReturn(unavailableItems);
+        Mockito.when(itemService.listAvailableItems()).thenReturn(unavailableItems);
 
         this.mockMvc.perform(get("/items")
                         .param("available", "false"))
@@ -90,7 +90,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     @Test
     @WithMockCustomUser
     public void whenGetUnavailableItemsWithAuthentication_thenReturnStatusOKAndUnavailableItems() throws Exception {
-        Mockito.when(itemService.getUnavailableItems()).thenReturn(unavailableItems);
+        Mockito.when(itemService.listUnavailableItems()).thenReturn(unavailableItems);
 
         final String expectedResponseContent = mapper.writeValueAsString(unavailableItems);
 
@@ -101,13 +101,13 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
                 .andExpect(content().string(expectedResponseContent))
                 .andExpect(status().isOk());
 
-        Mockito.verify(itemService).getUnavailableItems();
+        Mockito.verify(itemService).listUnavailableItems();
         Mockito.verifyNoMoreInteractions(itemService);
     }
 
     @Test
     public void whenGetItemsWithoutAuthentication_thenReturnStatusForbidden() throws Exception {
-        Mockito.when(itemService.getItems()).thenReturn(hardcodedValues.mockedItemsDto);
+        Mockito.when(itemService.listItems()).thenReturn(hardcodedValues.mockedItemsDto);
 
         this.mockMvc.perform(get("/items"))
                 .andDo(print())
@@ -119,7 +119,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     @Test
     @WithMockCustomUser
     public void whenGetItemsWithAuthentication_thenReturnStatusOKAndItems() throws Exception {
-        Mockito.when(itemService.getItems()).thenReturn(hardcodedValues.mockedItemsDto);
+        Mockito.when(itemService.listItems()).thenReturn(hardcodedValues.mockedItemsDto);
 
         final String expectedResponseContent = mapper.writeValueAsString(hardcodedValues.mockedItemsDto);
 
@@ -129,7 +129,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
                 .andExpect(content().string(expectedResponseContent))
                 .andExpect(status().isOk());
 
-        Mockito.verify(itemService).getItems();
+        Mockito.verify(itemService).listItems();
         Mockito.verifyNoMoreInteractions(itemService);
     }
     //endregion
@@ -137,7 +137,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     //region getCountOfItem
     @Test
     public void whenGetCountOfItemWithoutAuthentication_thenReturnStatusForbidden() throws Exception {
-        Mockito.doReturn(hardcodedValues.mockedItem.getAmount()).when(itemService).getCountOfItem(isA(UUID.class));
+        Mockito.doReturn(hardcodedValues.mockedItem.getAmount()).when(itemService).getItemCount(isA(UUID.class));
 
         this.mockMvc.perform(get("/items/{id}", "id", UUID.randomUUID()))
                 .andDo(print())
@@ -149,7 +149,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     @Test
     @WithMockCustomUser
     public void whenGetCountOfItemWithAuthentication_thenReturnStatusOkAndCountOfItem() throws Exception {
-        Mockito.doReturn(hardcodedValues.mockedItem.getAmount()).when(itemService).getCountOfItem(isA(UUID.class));
+        Mockito.doReturn(hardcodedValues.mockedItem.getAmount()).when(itemService).getItemCount(isA(UUID.class));
 
         final String expectedResponseContent = hardcodedValues.mockedItem.getAmount().toString();
 
@@ -159,7 +159,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(expectedResponseContent));
 
-        Mockito.verify(itemService).getCountOfItem(Mockito.any(UUID.class));
+        Mockito.verify(itemService).getItemCount(Mockito.any(UUID.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
     //endregion
@@ -167,7 +167,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     //region updateItem
     @Test
     public void whenUpdateItemWithoutAuthentication_thenReturnStatusForbidden() throws Exception {
-        Mockito.doNothing().when(itemService).updateItem(isA(UUID.class), isA(ItemDTO.class));
+        Mockito.doNothing().when(itemService).updateItem(isA(ItemDTO.class));
 
         final String requestedBodyContent = mapper.writeValueAsString(hardcodedValues.mockedItemDTO);
 
@@ -183,7 +183,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     @Test
     @WithMockCustomUser
     public void whenUpdateItemWithAccessAuthority_thenReturnStatusForbidden() throws Exception {
-        Mockito.doNothing().when(itemService).updateItem(isA(UUID.class), isA(ItemDTO.class));
+        Mockito.doNothing().when(itemService).updateItem(isA(ItemDTO.class));
 
         final String requestedBodyContent = mapper.writeValueAsString(hardcodedValues.mockedItemDTO);
 
@@ -199,7 +199,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
     @Test
     @WithMockCustomUser(roles = {"ACCESS", "ADMIN"})
     public void whenUpdateItemWithAdminAuthority_thenReturnStatusOK() throws Exception {
-        Mockito.doNothing().when(itemService).updateItem(isA(UUID.class), isA(ItemDTO.class));
+        Mockito.doNothing().when(itemService).updateItem(isA(ItemDTO.class));
 
         final String requestedBodyContent = mapper.writeValueAsString(hardcodedValues.mockedItemDTO);
 
@@ -209,7 +209,7 @@ public class ItemControllerRolesTest extends DefaultSecurityTestCase {
                 .andDo(print())
                 .andExpect(status().isOk());
 
-        Mockito.verify(itemService).updateItem(Mockito.any(UUID.class), Mockito.any(ItemDTO.class));
+        Mockito.verify(itemService).updateItem(Mockito.any(ItemDTO.class));
         Mockito.verifyNoMoreInteractions(itemService);
     }
     //endregion
