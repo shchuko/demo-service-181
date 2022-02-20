@@ -2,7 +2,6 @@ package com.itmo.microservices.shop.payment.impl.service;
 
 
 import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
 import com.itmo.microservices.shop.common.executors.RetryingExecutorService;
@@ -19,43 +18,38 @@ import com.itmo.microservices.shop.common.transactions.WriteBackStorage;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionProcessingException;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionStartException;
 import com.itmo.microservices.shop.common.transactions.functional.TransactionProcessor;
-import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
-import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
-import com.itmo.microservices.shop.order.api.service.IOrderService;
-import com.itmo.microservices.shop.payment.api.messaging.RefundOrderAnswerEvent;
-import com.itmo.microservices.shop.payment.api.messaging.RefundOrderRequestEvent;
+import com.itmo.microservices.shop.payment.api.messaging.*;
 import com.itmo.microservices.shop.payment.api.model.PaymentSubmissionDto;
-import com.itmo.microservices.shop.payment.api.model.RefundOrderDto;
 import com.itmo.microservices.shop.payment.api.service.PaymentService;
 import com.itmo.microservices.shop.payment.impl.config.ExternalPaymentServiceCredentials;
-import com.itmo.microservices.shop.payment.impl.entity.*;
-import com.itmo.microservices.shop.payment.impl.exceptions.PaymentFailedException;
+import com.itmo.microservices.shop.payment.impl.entity.PaymentLogRecord;
+import com.itmo.microservices.shop.payment.impl.entity.PaymentStatus;
+import com.itmo.microservices.shop.payment.impl.entity.PaymentTransactionsProcessorWriteback;
+import com.itmo.microservices.shop.payment.impl.exceptions.*;
 import com.itmo.microservices.shop.payment.impl.logging.PaymentServiceNotableEvent;
-import com.itmo.microservices.shop.payment.impl.repository.*;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
+import com.itmo.microservices.shop.payment.impl.repository.FinancialOperationTypeRepository;
+import com.itmo.microservices.shop.payment.impl.repository.PaymentLogRecordRepository;
+import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
+import com.itmo.microservices.shop.payment.impl.repository.PaymentTransactionsProcessorWritebackRepository;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 
 import java.util.*;
-import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@SuppressWarnings("UnstableApiUsage")
 @Service
-@EnableScheduling
 public class DefaultPaymentService implements PaymentService {
     private static final long POLLING_RETRY_INTERVAL_MILLIS = 500;
     private static final int RETRYING_EXECUTOR_POOL_SIZE = 5;
-    private static final int REFUND_POOL_SIZE = 20;
-    private static final int REFUND_RETRY_INTERVAL_MILLIS = 20000;
-    private static final int REFUND_LIFETIME_INTERVAL_MILLIS = 120000;
+    private static final int PAYMENT_SUBMISSION_EXECUTOR_POOL_SIZE = 5;
 
     private final ExternalServiceClient pollingClient;
     private final ExternalServiceClient syncClient;
-
-    private final IOrderService orderService;
 
     private final TransactionProcessor<TransactionResponseDto, UUID, TransactionContext> syncTransactionProcessor;
     private final TransactionProcessor<TransactionResponseDto, UUID, TransactionContext> pollingTransactionProcessor;
@@ -64,33 +58,114 @@ public class DefaultPaymentService implements PaymentService {
     private final FinancialOperationTypeRepository financialOperationTypeRepository;
     private final PaymentStatusRepository paymentStatusRepository;
     private final PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository;
-    private final  RefundOrderRepository refundOrderRepository;
+
+    private final Map<SubmittedPaymentKey, SubmittedPaymentValue> submittedPayments = new HashMap<>();
+
+    private final ScheduledThreadPoolExecutor pendingPaymentsProcessingExecutor = new ScheduledThreadPoolExecutor(PAYMENT_SUBMISSION_EXECUTOR_POOL_SIZE);
 
     @InjectEventLogger
     private EventLogger eventLogger;
 
-    PriorityBlockingQueue<RefundOrderDto> queue;
-
     private final EventBus eventBus;
 
-    public DefaultPaymentService(PaymentLogRecordRepository paymentLogRecordRepo,
-                                 FinancialOperationTypeRepository financialOperationTypeRepository,
-                                 PaymentStatusRepository paymentStatusRepository,
-                                 ExternalPaymentServiceCredentials externalPaymentServiceCredentials,
-                                 IOrderService orderService, PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository,
-                                 RefundOrderRepository refundOrderRepository, EventBus eventBus) {
+    @Override
+    @NotNull
+    public PaymentSubmissionDto payForOrder(@NotNull UUID userId, @NotNull UUID orderId) throws PaymentFailedException, PaymentAlreadyExistsException, PaymentInfoNotFoundException {
+        var key = new SubmittedPaymentKey(userId, orderId);
+        SubmittedPaymentValue value;
+        synchronized (submittedPayments) {
+            value = submittedPayments.getOrDefault(key, null);
+            if (value == null) {
+                /* TODO eventBus: post */
+                throw new PaymentInfoNotFoundException("Payment for 'orderId=" + orderId + "' not found");
+            }
+
+            if (value.nowProcessing) {
+                /* TODO eventBus: post */
+                throw new PaymentAlreadyExistsException("Payment for orderId='" + orderId + "' already queued for processing");
+            }
+            value.setNowProcessing(true);
+        }
+
+        eventLogger.info(PaymentServiceNotableEvent.I_PAYMENT_REQUEST_ADDED_SUCCESSFULLY, orderId);
+        return this.startTransaction(userId, orderId, FinancialOperationTypeRepository.VALUES.WITHDRAW.name(), value.amount);
+    }
+
+    @Override
+    public void submitPayment(@NotNull UUID userId, @NotNull UUID orderId, int amount, long expirationTimeoutMillis) throws PaymentAlreadyExistsException {
+        synchronized (submittedPayments) {
+            var key = new SubmittedPaymentKey(userId, orderId);
+            if (submittedPayments.containsKey(key)) {
+                /* TODO eventBus: post */
+                throw new PaymentAlreadyExistsException("Payment for orderId='" + orderId + "' already submitted");
+            }
+            submittedPayments.put(key, new SubmittedPaymentValue(amount, FinancialOperationTypeRepository.VALUES.WITHDRAW));
+        }
+
+        pendingPaymentsProcessingExecutor.schedule(() -> {
+            try {
+                cancelPayment(userId, orderId);
+                /* TODO eventBus: post */
+            } catch (PaymentException ignored) {
+                /* TODO eventBus: post */
+            }
+        }, expirationTimeoutMillis, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public void cancelPayment(@NotNull UUID userId, @NotNull UUID orderId) throws PaymentInfoNotFoundException, PaymentInUninterruptibleProcessing {
+        synchronized (submittedPayments) {
+            var key = new SubmittedPaymentKey(userId, orderId);
+            var value = submittedPayments.getOrDefault(key, null);
+            if (value == null) {
+                /* TODO eventBus: post */
+                throw new PaymentInfoNotFoundException("Payment for orderId='" + orderId + "' not found submitted");
+            }
+
+            if (value.nowProcessing) {
+                /* TODO eventBus: post */
+                throw new PaymentInUninterruptibleProcessing("Payment for orderId='" + orderId + "' cannot be unterrupted");
+            }
+            submittedPayments.remove(new SubmittedPaymentKey(userId, orderId));
+        }
+
+        eventBus.post(new PaymentCancelledEvent());
+    }
+
+    @Override
+    public final void doRefund(@NotNull RefundOrderRequestEvent event) throws PaymentAlreadyExistsException {
+        var userId = event.getUserId();
+        var orderId = event.getOrderId();
+        var amount = event.getAmount();
+        var operationType = FinancialOperationTypeRepository.VALUES.REFUND;
+
+        synchronized (submittedPayments) {
+            var key = new SubmittedPaymentKey(userId, orderId);
+            var value = submittedPayments.getOrDefault(key, null);
+            if (value != null) {
+                /* TODO eventBus: post */
+                throw new PaymentAlreadyExistsException("Payment for orderId='" + orderId + "' already exists");
+            }
+            submittedPayments.put(key, new SubmittedPaymentValue(event.getAmount(), operationType, true));
+        }
+
+        try {
+            /* TODO eventBus: post */
+            startTransaction(userId, orderId, operationType.name(), amount);
+        } catch (PaymentFailedException e) {
+            eventBus.post(new PaymentFailedEvent(/* TODO add required args*/));
+        }
+    }
+
+    public DefaultPaymentService(PaymentLogRecordRepository paymentLogRecordRepo, FinancialOperationTypeRepository financialOperationTypeRepository, PaymentStatusRepository paymentStatusRepository, ExternalPaymentServiceCredentials externalPaymentServiceCredentials, PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository, EventBus eventBus) {
         this.paymentLogRecordRepo = paymentLogRecordRepo;
         this.financialOperationTypeRepository = financialOperationTypeRepository;
         this.paymentStatusRepository = paymentStatusRepository;
-        this.orderService = orderService;
         this.paymentTransactionsProcessorWritebackRepository = paymentTransactionsProcessorWritebackRepository;
-        this.queue = new PriorityBlockingQueue<>(REFUND_POOL_SIZE);
-
+        this.eventBus = eventBus;
 
         pollingClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getPollingSecret());
         syncClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getSyncSecret());
-        this.refundOrderRepository = refundOrderRepository;
-        this.eventBus = eventBus;
 
         TimeoutProvider timeoutProvider = new FixedTimeoutProvider(POLLING_RETRY_INTERVAL_MILLIS);
         RetryingExecutorService retryingExecutorService = new TimedRetryingExecutorService(RETRYING_EXECUTOR_POOL_SIZE, timeoutProvider);
@@ -99,169 +174,91 @@ public class DefaultPaymentService implements PaymentService {
         pollingTransactionProcessor = TransactionPollingProcessor.<TransactionResponseDto, UUID, TransactionContext>builder()
                 .withPollingExecutorService(retryingExecutorService)
                 .withWriteBackStorage(new WriteBackStorageImpl())
-                .withTransactionStartLimiter(new RateLimiter(externalPaymentServiceCredentials.getRateLimit(),
-                        TimeUnit.MINUTES))
+                .withTransactionStartLimiter(new RateLimiter(externalPaymentServiceCredentials.getRateLimit(), TimeUnit.MINUTES))
                 .withTransactionStarter((Object... ignored) -> {
                     try {
                         return pollingClient.post().toTransactionWrapper();
                     } catch (HttpServerErrorException | HttpClientErrorException e) {
                         throw new TransactionStartException(e);
                     }
-                })
-                .withTransactionUpdater((UUID transactionId) -> pollingClient.get(transactionId).toTransactionWrapper())
+                }).withTransactionUpdater((UUID transactionId) -> pollingClient.get(transactionId).toTransactionWrapper())
                 .withTransactionFinishHandler(this::transactionCompletionProcessor)
                 // External service issue, just retry on 404 until SUCCESS received
                 // See https://t.me/c/1436658303/1445
-                .withIgnoringExceptionHandler(HttpClientErrorException.NotFound.class)
-                .build();
+                // TODO validate that fixed and remove
+                .withIgnoringExceptionHandler(HttpClientErrorException.NotFound.class).build();
     }
 
-    private PaymentSubmissionDto externalRequest(String orderId, String operationType) throws PaymentFailedException {
+    @NotNull
+    private PaymentSubmissionDto startTransaction(@NotNull UUID userId, @NotNull UUID orderId, @NotNull String operationType, int amount) throws PaymentFailedException {
+        TransactionContext context = new TransactionContext(new PaymentTransactionsProcessorWriteback(amount, orderId, userId, operationType));
 
-        PaymentTransactionsProcessorWriteback entry = new PaymentTransactionsProcessorWriteback();
-
-        // TODO move user id setting to the payment controller, get it this method argument
-        entry.setUserId(UUID.fromString("E99B7EE6-EE5E-4CB9-9CDD-33FE50765E6E"));
-        entry.setFinancialOperationTypeName(operationType);
-
-        UUID orderUUID = UUID.fromString(orderId);
-
-        try {
-            entry.setAmount(orderService.getAmount(orderUUID));
-            entry.setOrderId(orderUUID);
-        } catch (NoSuchElementException e) {
-            // TODO collect metrics here
-            throw new PaymentFailedException(String.format("Payment failed because of %s", e.getMessage()));
-        }
-
-        TransactionContext context = new TransactionContext(entry);
-        /* Try to submit transaction using polling */
+        /* Try to submit transaction with polling */
         TransactionWrapper<TransactionResponseDto, UUID> transactionWrapper = null;
         try {
             transactionWrapper = pollingTransactionProcessor.startTransaction(context);
         } catch (TransactionProcessingException ignored) {
-            // TODO collect metrics here
+            /* TODO collect metrics here */
+            /* TODO eventBus: post */
         }
 
-        /* On error retry using synchronous call */
         if (transactionWrapper == null) {
+            /* On error retry using synchronous call */
             try {
                 transactionWrapper = syncTransactionProcessor.startTransaction(context);
             } catch (TransactionProcessingException e) {
-                // TODO collect metrics here
+                synchronized (submittedPayments) {
+                    var value = submittedPayments.getOrDefault(new SubmittedPaymentKey(userId, orderId), null);
+                    assert (value != null);
+                    if (value != null) {
+                        value.setNowProcessing(false);
+                    }
+                }
+
+                /* TODO collect metrics here */
+                /* TODO eventBus: post */
+
                 throw new PaymentFailedException("Payment failed because of external service error");
             }
-
             transactionCompletionProcessor(transactionWrapper, context);
         }
 
         return new PaymentSubmissionDto(transactionWrapper.getWrappedObject().getSubmitTime(), transactionWrapper.getId());
     }
 
-    public PaymentSubmissionDto orderPayment(String orderId) throws PaymentFailedException {
-        eventLogger.info(PaymentServiceNotableEvent.I_PAYMENT_REQUEST_ADDED_SUCCESSFULLY, orderId);
-        return this.externalRequest(orderId, FinancialOperationTypeRepository.VALUES.WITHDRAW.name());
-    }
-
-    @Subscribe
-    public void handleRefund(RefundOrderRequestEvent refundOrderRequestEvent) {
-
-        if (refundOrderRepository.existsByOrderId(refundOrderRequestEvent.getOrderUUID())) {
-            eventLogger.error(PaymentServiceNotableEvent.E_REFUND_ALREADY_REQUESTED, refundOrderRequestEvent.getOrderUUID());
-            return;
-        }
-
-        if (paymentLogRecordRepo.existsByOrderIdAndPaymentStatusAndFinancialOperationType(
-                refundOrderRequestEvent.getOrderUUID()
-                , paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.SUCCESS.name()),
-                financialOperationTypeRepository.findFinancialOperationTypeByName(FinancialOperationTypeRepository.VALUES.REFUND.name()))
-        ) {
-            eventBus.post(new RefundOrderAnswerEvent(refundOrderRequestEvent.getOrderUUID(), PaymentStatusRepository.VALUES.FAILED.name()));
-            eventLogger.error(PaymentServiceNotableEvent.E_REFUND_ALREADY_DONE, refundOrderRequestEvent.getOrderUUID());
-            return;
-        }
-        RefundOrder refundOrder = new RefundOrder();
-        refundOrder.setOrderId(refundOrderRequestEvent.getOrderUUID());
-        refundOrder.setPrice(refundOrderRequestEvent.getPrice());
-        refundOrder.setRequestTime(new Date());
-        refundOrderRepository.save(refundOrder);
-        eventLogger.info(PaymentServiceNotableEvent.I_REFUND_REQUEST_ADDED_SUCCESSFULLY, refundOrder.getOrderId());
-    }
-
-
-    @Scheduled(fixedDelay = REFUND_RETRY_INTERVAL_MILLIS)
-    public void doRefund() {
-        updateQueue();
-        int queueSize = queue.size();
-        for (int i = 0; i < queueSize; i++) {
-            RefundOrderDto refundOrderDto = queue.remove();
-            try {
-
-                PaymentLogRecord paymentLogRecord = paymentLogRecordRepo.findByTransactionId(refundOrderDto.getTransactionId());
-
-                if (paymentLogRecord == null ||
-                        paymentLogRecord.getPaymentStatus().getName().equals(PaymentStatusRepository.VALUES.FAILED.name())
-                ) {
-                    long requestLifetime = (new Date()).getTime() - refundOrderDto.getRequestTime().getTime();
-                    if (requestLifetime > REFUND_LIFETIME_INTERVAL_MILLIS) {
-                        removeFromRepo(refundOrderDto, PaymentStatusRepository.VALUES.FAILED.name());
-                        eventLogger.error(PaymentServiceNotableEvent.E_REFUND_TIMEOUT, refundOrderDto.getOrderId());
-                        continue;
-                    }
-                    PaymentSubmissionDto paymentSubmissionDto = this.externalRequest(refundOrderDto.getOrderId().toString(),
-                            FinancialOperationTypeRepository.VALUES.REFUND.name());
-
-                    RefundOrder refundOrderToUpdate = refundOrderRepository.findByOrderId(refundOrderDto.getOrderId());
-                    refundOrderToUpdate.setTransactionId(paymentSubmissionDto.getTransactionId());
-                    refundOrderRepository.save(refundOrderToUpdate);
-                    continue;
-                }
-
-                removeFromRepo(refundOrderDto, PaymentStatusRepository.VALUES.SUCCESS.name());
-                eventLogger.info(PaymentServiceNotableEvent.I_REFUND_REQUEST_WAS_SUCCESSFUL, refundOrderDto.getOrderId());
-            } catch (Exception e) {
-                eventLogger.error(PaymentServiceNotableEvent.E_REFUND_EXCEPTION_SCHEDULER, refundOrderDto.getOrderId());
-            }
-        }
-    }
-
-    private void updateQueue() {
-        List<RefundOrder> savedRefunds = refundOrderRepository.findAll();
-        queue.clear();
-        queue.addAll(savedRefunds.stream().map(RefundOrderDto::toModel).collect(Collectors.toList()));
-    }
-
-    private void removeFromRepo(RefundOrderDto refundOrderDto, String status) {
-        refundOrderRepository.delete(refundOrderRepository.findByOrderId(refundOrderDto.getOrderId()));
-        eventBus.post(new RefundOrderAnswerEvent(refundOrderDto.getOrderId(), status));
-    }
-
-
     private void transactionCompletionProcessor(TransactionWrapper<TransactionResponseDto, UUID> transaction, TransactionContext context) {
-        PaymentLogRecord paymentLogRecord = new PaymentLogRecord();
+        var orderId = context.unwrap().getOrderId();
+        var userId = context.unwrap().getUserId();
+        var transactionId = transaction.getId();
+        var amount = context.unwrap().getAmount();
+        var opTypeName = context.unwrap().getFinancialOperationTypeName();
+        var opType = financialOperationTypeRepository.findFinancialOperationTypeByName(opTypeName);
+        var completedTime = transaction.getWrappedObject().getCompletedTime();
 
-        paymentLogRecord.setTransactionId(transaction.getId());
-        paymentLogRecord.setAmount(context.unwrap().getAmount());
-        paymentLogRecord.setOrderId(context.unwrap().getOrderId());
-        paymentLogRecord.setUserId(context.unwrap().getUserId());
-        paymentLogRecord.setFinancialOperationType(financialOperationTypeRepository.findFinancialOperationTypeByName(context.unwrap().getFinancialOperationTypeName()));
-        paymentLogRecord.setTimestamp(transaction.getWrappedObject().getCompletedTime());
-
+        PaymentStatus status = null;
+        PaymentStatusEvent event = null;
         switch (transaction.getStatus()) {
             case SUCCESS:
-                paymentLogRecord.setPaymentStatus(paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.SUCCESS.name()));
-                paymentLogRecordRepo.saveAndFlush(paymentLogRecord);
-                eventBus.post(new OrderSuccessPaidEvent(context.unwrap().getOrderId(), context.unwrap().getUserId(),
-                        context.unwrap().getAmount()));
+                event = new PaymentSuccessfulEvent();
+                status = paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.SUCCESS.name());
                 break;
             case FAILURE:
-                paymentLogRecord.setPaymentStatus(paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.FAILED.name()));
-                paymentLogRecordRepo.saveAndFlush(paymentLogRecord);
-                eventBus.post(new OrderFailedPaidEvent(context.unwrap().getOrderId(), context.unwrap().getUserId(),
-                        context.unwrap().getAmount()));
+                event = new PaymentFailedEvent();
+                status = paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.FAILED.name());
                 break;
+            case PENDING:
+                throw new IllegalStateException("Should not be reached");
         }
 
+        var paymentLogRecord = new PaymentLogRecord(amount, completedTime, orderId, transactionId, userId, status, opType);
+        paymentLogRecordRepo.save(paymentLogRecord);
+
+        synchronized (submittedPayments) {
+            var removed = submittedPayments.remove(new SubmittedPaymentKey(userId, orderId));
+            assert (removed != null);
+        }
+
+        eventBus.post(event);
     }
 
     private static class TransactionContext {
@@ -294,6 +291,59 @@ public class DefaultPaymentService implements PaymentService {
         @Override
         public List<Map.Entry<UUID, TransactionContext>> getAll() {
             return new ArrayList<>(paymentTransactionsProcessorWritebackRepository.findAll().stream().collect(Collectors.toMap(PaymentTransactionsProcessorWriteback::getId, TransactionContext::new)).entrySet());
+        }
+    }
+
+
+    /**
+     * TODO create backing table in DB and make the service shutdown-tolerant
+     */
+    private static class SubmittedPaymentKey {
+        @NotNull
+        final UUID userId;
+        @NotNull
+        final UUID orderId;
+
+        public SubmittedPaymentKey(@NotNull UUID userId, @NotNull UUID orderId) {
+            this.userId = userId;
+            this.orderId = orderId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SubmittedPaymentKey that = (SubmittedPaymentKey) o;
+            return userId.equals(that.userId) && orderId.equals(that.orderId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(userId, orderId);
+        }
+
+    }
+
+    private static class SubmittedPaymentValue {
+        final int amount;
+
+        @NotNull
+        final FinancialOperationTypeRepository.VALUES operationType;
+
+        boolean nowProcessing;
+
+        SubmittedPaymentValue(int amount, @NotNull FinancialOperationTypeRepository.VALUES operationType, boolean nowProcessing) {
+            this.amount = amount;
+            this.operationType = operationType;
+            this.nowProcessing = nowProcessing;
+        }
+
+        SubmittedPaymentValue(int amount, @NotNull FinancialOperationTypeRepository.VALUES operationType) {
+            this(amount, operationType, false);
+        }
+
+        void setNowProcessing(boolean value) {
+            this.nowProcessing = value;
         }
     }
 }

@@ -1,18 +1,18 @@
 package com.itmo.microservices.shop.payment.impl.entity;
 
-import java.util.Objects;
-import java.util.UUID;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.Hibernate;
+
 import javax.persistence.Entity;
 import javax.persistence.Id;
-
-import lombok.*;
-import org.hibernate.Hibernate;
+import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Getter
 @Setter
-@AllArgsConstructor
-@RequiredArgsConstructor
 @ToString
 public class PaymentTransactionsProcessorWriteback {
 
@@ -22,6 +22,24 @@ public class PaymentTransactionsProcessorWriteback {
     private UUID orderId;
     private UUID userId;
     private String financialOperationTypeName;
+
+    public PaymentTransactionsProcessorWriteback() {
+    }
+
+    public PaymentTransactionsProcessorWriteback(Integer amount, UUID orderId, UUID userId, String financialOperationTypeName) {
+        this.amount = amount;
+        this.orderId = orderId;
+        this.userId = userId;
+        this.financialOperationTypeName = financialOperationTypeName;
+    }
+
+    public PaymentTransactionsProcessorWriteback(UUID id, Integer amount, UUID orderId, UUID userId, String financialOperationTypeName) {
+        this.id = id;
+        this.amount = amount;
+        this.orderId = orderId;
+        this.userId = userId;
+        this.financialOperationTypeName = financialOperationTypeName;
+    }
 
     @Override
     public boolean equals(Object o) {

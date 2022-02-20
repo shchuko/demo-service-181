@@ -1,8 +1,6 @@
 package com.itmo.microservices.shop.payment.impl.entity;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.hibernate.Hibernate;
 
@@ -15,8 +13,6 @@ import static org.hibernate.Hibernate.isInitialized;
 @Entity
 @Getter
 @Setter
-@AllArgsConstructor
-@RequiredArgsConstructor
 public class PaymentLogRecord {
 
     @Id
@@ -34,6 +30,30 @@ public class PaymentLogRecord {
 
     @ManyToOne(fetch = FetchType.EAGER)
     private FinancialOperationType financialOperationType;
+
+    public PaymentLogRecord() {
+    }
+
+    public PaymentLogRecord(Integer amount, Long timestamp, UUID orderId, UUID transactionId, UUID userId, PaymentStatus paymentStatus, FinancialOperationType financialOperationType) {
+        this.amount = amount;
+        this.timestamp = timestamp;
+        this.orderId = orderId;
+        this.transactionId = transactionId;
+        this.userId = userId;
+        this.paymentStatus = paymentStatus;
+        this.financialOperationType = financialOperationType;
+    }
+
+    public PaymentLogRecord(UUID id, Integer amount, Long timestamp, UUID orderId, UUID transactionId, UUID userId, PaymentStatus paymentStatus, FinancialOperationType financialOperationType) {
+        this.id = id;
+        this.amount = amount;
+        this.timestamp = timestamp;
+        this.orderId = orderId;
+        this.transactionId = transactionId;
+        this.userId = userId;
+        this.paymentStatus = paymentStatus;
+        this.financialOperationType = financialOperationType;
+    }
 
     @Override
     public boolean equals(Object o) {
