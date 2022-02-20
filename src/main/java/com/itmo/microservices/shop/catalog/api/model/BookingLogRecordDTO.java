@@ -1,7 +1,6 @@
 package com.itmo.microservices.shop.catalog.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.itmo.microservices.shop.catalog.impl.entity.BookingStatus;
 import lombok.Data;
 
 import java.util.UUID;
@@ -9,15 +8,16 @@ import java.util.UUID;
 @Data
 public class BookingLogRecordDTO {
 
-    public BookingLogRecordDTO(UUID bookingId, UUID itemId, Integer amount, BookingStatus status, Long timestamp) {
+    public BookingLogRecordDTO(UUID bookingId, UUID itemId, Integer amount, String bookingStatus, Long timestamp) {
         this.bookingId = bookingId;
         this.itemId = itemId;
         this.amount = amount;
-        this.status = status.getName();
+        this.status = bookingStatus;
         this.timestamp = timestamp;
     }
 
-    public BookingLogRecordDTO() { }
+    public BookingLogRecordDTO() {
+    }
 
     @JsonProperty("bookingId")
     private UUID bookingId;
