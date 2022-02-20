@@ -1,6 +1,5 @@
 package com.itmo.microservices.shop.catalog.impl.entity;
 
-import lombok.*;
 import org.hibernate.Hibernate;
 
 import javax.persistence.Entity;
@@ -8,11 +7,6 @@ import javax.persistence.Id;
 import java.util.Objects;
 
 @Entity
-@Getter
-@Setter
-@ToString
-@AllArgsConstructor
-@RequiredArgsConstructor
 public class BookingStatus {
 
     @Id
@@ -27,12 +21,63 @@ public class BookingStatus {
         if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) {
             return false;
         }
-        BookingStatus paymentStatus = (BookingStatus) o;
-        return Objects.equals(id, paymentStatus.getId());
+        BookingStatus status = (BookingStatus) o;
+        return Objects.equals(id, status.getId());
     }
 
     @Override
     public int hashCode() {
         return Objects.hashCode(id);
+    }
+
+    @Override
+    public String toString() {
+        return "BookingStatus{" + "id=" + id + ", name='" + name + '\'' + '}';
+    }
+
+    public BookingStatus() {
+    }
+
+    public BookingStatus(Integer id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    /**
+     * Status list:
+     * <ul>
+     * <li>CREATED - booking created</li>
+     * <li>CANCELLED - booking cancelled by the used or if expired (term)</li>
+     * <li>COMMITTED - commit booking, it cannot be expired</li>
+     * <li>REFUND - items refund to catalog by the user (term)</li>
+     * <li>COMPLETE - items is to user, cannot be refund</li>
+     * </ul>
+     * <p>
+     * Expected transitions:
+     * <ul>
+     * <li>CREATED -> CANCELLED (termination state)</li>
+     * <li>CREATED -> COMMITTED</li>
+     * <li>COMMITTED -> REFUND (termination state)</li>
+     * <li>COMMITTED -> COMPLETE (termination state)</li>
+     * </ul>
+     */
+    public enum StatusStrings {
+        CREATED, CANCELLED, COMMITTED, REFUND, COMPLETE
     }
 }

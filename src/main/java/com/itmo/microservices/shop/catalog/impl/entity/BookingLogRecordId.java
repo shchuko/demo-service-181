@@ -7,16 +7,20 @@ import java.util.UUID;
 
 @Embeddable
 public class BookingLogRecordId implements Serializable {
-    private UUID bookingId;
-    private UUID itemId;
-
+    public UUID bookingId;
+    public UUID itemId;
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         BookingLogRecordId that = (BookingLogRecordId) o;
-        return Objects.equals(bookingId, that.bookingId) && Objects.equals(itemId, that.itemId);
+        return Objects.equals(bookingId, that.bookingId)
+                && Objects.equals(itemId, that.itemId);
     }
 
     @Override

@@ -5,11 +5,5 @@ import com.itmo.microservices.shop.payment.impl.entity.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BookingStatusRepository extends JpaRepository<BookingStatus, Integer> {
-
-    BookingStatus findPaymentStatusById(Integer id);
-    BookingStatus findByName(String name);
-
-    enum VALUES {
-        FAILED, SUCCESS
-    }
+    BookingStatus getBookingStatusByName(String name);
 }

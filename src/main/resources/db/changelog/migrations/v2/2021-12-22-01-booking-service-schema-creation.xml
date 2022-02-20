@@ -8,8 +8,8 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd
         http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd
         http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.3.xsd">
-    <changeSet id="2021-12-22-01-booking-service-schema-creation" author="Egor Kuzmin">
-        <createTable tableName="booking_status">
+    <changeSet id="2021-12-22-01-booking-service-schema-creation" author="Egor Kuzmin, Vladislav Yaroshchuk">
+        <createTable tableName="booking_log_record_status">
             <column name="id" type="int" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
@@ -28,15 +28,41 @@
             <column name="amount" type="int">
                 <constraints nullable="false"/>
             </column>
-            <column name="status_id" type="int">
+            <column name="booking_log_record_status_id" type="int">
                 <constraints nullable="false"/>
             </column>
             <column name="timestamp" type="bigint">
-                <constraints nullable="true"/>
+                <constraints nullable="false"/>
             </column>
         </createTable>
 
-        <!--  Fill booking_status table   -->
+        <!--  Fill booking_log_record_status table   -->
+        <insert tableName="booking_log_record_status">
+            <column name="name" value="FAILED"/>
+        </insert>
+        <insert tableName="booking_log_record_status">
+            <column name="name" value="SUCCESS"/>
+        </insert>
+
+        <createTable tableName="booking_status">
+            <column name="id" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(50)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="booking">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="booking_status_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!--  Fill booking_log_record_status table   -->
         <insert tableName="booking_status">
             <column name="name" value="FAILED"/>
         </insert>
