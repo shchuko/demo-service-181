@@ -163,7 +163,7 @@ public class OrderItemService implements IOrderService {
                 throw new BadOperationForCurrentOrderStatus("'SetTimeSlot' allowed only for 'BOOKED' order", orderId, status);
         }
 
-        order.setDeliverySlot(time);
+        order.setDeliveryDuration(time);
         orderRepository.save(order);
 
         logInfo(OrderServiceNotableEvent.I_ORDER_SET_TIME_SLOT, "order=" + orderId + " slot=" + time);
@@ -277,7 +277,7 @@ public class OrderItemService implements IOrderService {
         OrderTable order = deliveryEventCommonPreHandler(event);
         OrderStatus statusComplete = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COMPLETED.name());
         order.setStatus(statusComplete);
-        order.setDeliveryDuration(event.getDeliveryDuration());
+//        order.setDeliveryDuration(event.getDeliveryDuration());
         orderRepository.save(order);
         logInfo(OrderServiceNotableEvent.I_ORDER_SUCCESSFUL_DELIVERY, event.getOrderId());
     }
