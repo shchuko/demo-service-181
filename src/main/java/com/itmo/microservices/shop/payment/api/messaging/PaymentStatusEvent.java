@@ -5,10 +5,20 @@ import java.util.UUID;
 public abstract class PaymentStatusEvent {
     private UUID orderId;
     private UUID userId;
+    private String operationType;
 
-    public PaymentStatusEvent(UUID orderId, UUID userId) {
+    public String getOperationType() {
+        return operationType;
+    }
+
+    public void setOperationType(String operationType) {
+        this.operationType = operationType;
+    }
+
+    public PaymentStatusEvent(UUID orderId, UUID userId, String operationType) {
         this.orderId = orderId;
         this.userId = userId;
+        this.operationType = operationType;
     }
 
     public UUID getOrderId() {

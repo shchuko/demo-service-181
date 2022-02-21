@@ -125,9 +125,10 @@ public class DefaultPaymentService implements PaymentService {
 
     @Override
     public void cancelPayment(@NotNull UUID userId, @NotNull UUID orderId) throws PaymentInfoNotFoundException, PaymentInUninterruptibleProcessing {
+        SubmittedPaymentValue value;
         synchronized (submittedPayments) {
             var key = new SubmittedPaymentKey(userId, orderId);
-            var value = submittedPayments.getOrDefault(key, null);
+            value = submittedPayments.getOrDefault(key, null);
             if (value == null) {
                 /* TODO eventBus: post */
                 throw new PaymentInfoNotFoundException("Payment for orderId='" + orderId + "' not found submitted");
@@ -140,7 +141,7 @@ public class DefaultPaymentService implements PaymentService {
             submittedPayments.remove(new SubmittedPaymentKey(userId, orderId));
         }
 
-        eventBus.post(new PaymentCancelledEvent(orderId, userId));
+        eventBus.post(new PaymentCancelledEvent(orderId, userId, value.operationType.name()));
     }
 
     @Subscribe
@@ -252,7 +253,7 @@ public class DefaultPaymentService implements PaymentService {
         PaymentStatusEvent event = null;
         switch (transaction.getStatus()) {
             case SUCCESS:
-                event = new PaymentSuccessfulEvent(orderId, userId, FinancialOperationTypeRepository.VALUES.valueOf(opTypeName));
+                event = new PaymentSuccessfulEvent(orderId, userId, opTypeName);
                 status = paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.SUCCESS.name());
                 synchronized (submittedPayments) {
                     var removed = submittedPayments.remove(new SubmittedPaymentKey(userId, orderId));
@@ -260,7 +261,7 @@ public class DefaultPaymentService implements PaymentService {
                 }
                 break;
             case FAILURE:
-                event = new PaymentFailedEvent(orderId, userId, FinancialOperationTypeRepository.VALUES.valueOf(opTypeName));
+                event = new PaymentFailedEvent(orderId, userId, opTypeName);
                 status = paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.FAILED.name());
                 synchronized (submittedPayments) {
                     var value = submittedPayments.getOrDefault(new SubmittedPaymentKey(userId, orderId), null);

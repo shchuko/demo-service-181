@@ -33,6 +33,7 @@ import com.itmo.microservices.shop.payment.api.service.PaymentService;
 import com.itmo.microservices.shop.payment.impl.exceptions.PaymentAlreadyExistsException;
 import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInUninterruptibleProcessing;
 import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInfoNotFoundException;
+import com.itmo.microservices.shop.payment.impl.repository.FinancialOperationTypeRepository;
 import com.itmo.microservices.shop.user.api.service.UserService;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -216,9 +217,9 @@ public class OrderItemService implements IOrderService {
     public void handlePaymentSuccess(PaymentSuccessfulEvent event) {
         /* BOOKED -> PAID */
         /* PAID -> REFUND */
-        OrderTable order = paymentEventCommonPreHandler(event);
+        OrderTable order = getOrderOrThrow(event.getOrderId(), event.getUserId());
 
-        switch (event.getOperationType()) {
+        switch (FinancialOperationTypeRepository.VALUES.valueOf(event.getOperationType())) {
             case REFUND:
 //                TODO uncomment, now we calling onRefundComplete triggerRefund
 //                onRefundComplete(order);
@@ -229,7 +230,7 @@ public class OrderItemService implements IOrderService {
                 orderRepository.save(order);
                 itemService.completeBooking(order.getLastBookingId());
                 logInfo(OrderServiceNotableEvent.I_ORDER_SUCCESSFUL_PAYMENT, order.getId());
-                if (order.getDeliverySlot() == null) {
+                if (order.getDeliveryDuration() == null) {
                     triggerRefund(order);
                 } else {
                     eventBus.post(new StartDeliveryEvent(order.getId(), order.getUserId(), order.getDeliverySlot()));
@@ -243,9 +244,9 @@ public class OrderItemService implements IOrderService {
     public void handlePaymentFault(PaymentFailedEvent event) {
         /* BOOKED -> BOOKED */
         /* PAID -> [trigger refund] */
-        OrderTable order = paymentEventCommonPreHandler(event);
+        OrderTable order = getOrderOrThrow(event.getOrderId(), event.getUserId());
 
-        switch (event.getOperationType()) {
+        switch (FinancialOperationTypeRepository.VALUES.valueOf(event.getOperationType())) {
             case REFUND:
                 /* Retry refund */
 //                TODO uncomment, now we calling onRefundComplete triggerRefund
@@ -262,7 +263,12 @@ public class OrderItemService implements IOrderService {
     @Override
     public void handlePaymentCancellation(PaymentCancelledEvent event) {
         /* BOOKED -> COLLECTING */
-        OrderTable order = paymentEventCommonPreHandler(event);
+        OrderTable order = getOrderOrThrow(event.getOrderId(), event.getUserId());
+        if (FinancialOperationTypeRepository.VALUES.REFUND.name().equals(event.getOperationType())) {
+            /* Ignored for now */
+            return;
+        }
+
         itemService.cancelBooking(order.getLastBookingId());
         OrderStatus statusCollecting = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
         order.setStatus(statusCollecting);
@@ -318,15 +324,6 @@ public class OrderItemService implements IOrderService {
             default:
                 logError(OrderServiceNotableEvent.E_ILLEGAL_STATE, "Delivery status handler for order in state" + order.getStatus().getName());
                 throw new IllegalStateException();
-        }
-        return order;
-    }
-
-    private OrderTable paymentEventCommonPreHandler(PaymentStatusEvent event) {
-        OrderTable order = getOrderOrThrow(event.getOrderId(), event.getUserId());
-        if (IOrderStatusRepository.StatusNames.valueOf(order.getStatus().getName()) != IOrderStatusRepository.StatusNames.BOOKED) {
-            logError(OrderServiceNotableEvent.E_ILLEGAL_STATE, "Payment status handler for order in state" + order.getStatus().getName());
-            throw new IllegalStateException();
         }
         return order;
     }

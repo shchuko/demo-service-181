@@ -5,14 +5,7 @@ import com.itmo.microservices.shop.payment.impl.repository.FinancialOperationTyp
 import java.util.UUID;
 
 public class PaymentSuccessfulEvent extends PaymentStatusEvent {
-    private final FinancialOperationTypeRepository.VALUES operationType;
-
-    public PaymentSuccessfulEvent(UUID orderId, UUID userId, FinancialOperationTypeRepository.VALUES operationType) {
-        super(orderId, userId);
-        this.operationType = operationType;
-    }
-
-    public FinancialOperationTypeRepository.VALUES getOperationType() {
-        return operationType;
+    public PaymentSuccessfulEvent(UUID orderId, UUID userId, String operationType) {
+        super(orderId, userId, operationType);
     }
 }
