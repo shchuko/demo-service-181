@@ -5,19 +5,20 @@ import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
-import com.itmo.microservices.shop.catalog.api.model.BookingLogRecordDTO;
+import com.itmo.microservices.shop.catalog.api.model.BookingDescriptionDto;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.api.service.ItemService;
-import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
-import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionSuccessEvent;
-import com.itmo.microservices.shop.order.api.exeptions.InvalidItemException;
-import com.itmo.microservices.shop.order.api.messaging.OrderFailedPaidEvent;
-import com.itmo.microservices.shop.order.api.messaging.OrderStartDeliveryTransactionEvent;
-import com.itmo.microservices.shop.order.api.messaging.OrderSuccessPaidEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusFailedEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusSuccessEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryEvent;
+import com.itmo.microservices.shop.order.api.exeptions.BadOperationForCurrentOrderStatus;
+import com.itmo.microservices.shop.order.api.exeptions.OrderNotFoundException;
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
 import com.itmo.microservices.shop.order.api.model.OrderDTO;
 import com.itmo.microservices.shop.order.api.service.IOrderService;
 import com.itmo.microservices.shop.order.impl.entity.OrderItem;
+import com.itmo.microservices.shop.order.impl.entity.OrderItemID;
 import com.itmo.microservices.shop.order.impl.entity.OrderStatus;
 import com.itmo.microservices.shop.order.impl.entity.OrderTable;
 import com.itmo.microservices.shop.order.impl.logging.OrderServiceNotableEvent;
@@ -26,53 +27,58 @@ import com.itmo.microservices.shop.order.impl.repository.IOrderItemRepository;
 import com.itmo.microservices.shop.order.impl.repository.IOrderStatusRepository;
 import com.itmo.microservices.shop.order.impl.repository.IOrderTableRepository;
 import com.itmo.microservices.shop.order.messaging.OrderCreatedEvent;
-import com.itmo.microservices.shop.payment.api.messaging.RefundOrderAnswerEvent;
-import kotlin.Suppress;
+import com.itmo.microservices.shop.payment.api.messaging.*;
+import com.itmo.microservices.shop.payment.api.service.PaymentService;
+import com.itmo.microservices.shop.payment.impl.exceptions.PaymentAlreadyExistsException;
+import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInUninterruptibleProcessing;
+import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInfoNotFoundException;
+import com.itmo.microservices.shop.user.api.service.UserService;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@Suppress(names = "UnstableApiUsage")
+@SuppressWarnings("UnstableApiUsage")
 public class OrderItemService implements IOrderService {
-    private final IOrderItemRepository itemRepository;
+    private static final long BOOKING_TIMEOUT_MILLIS = 1000 * 60;
+
+    private final UserService userService;
+    private final IOrderItemRepository orderItemRepository;
     private final IOrderStatusRepository statusRepository;
-    private final IOrderTableRepository tableRepository;
+    private final IOrderTableRepository orderRepository;
+
     @InjectEventLogger
     private EventLogger eventLogger;
+    private final PaymentService paymentService;
     private final EventBus eventBus;
     private final ItemService itemService;
 
-    public OrderItemService(IOrderItemRepository itemRepository,
+    public OrderItemService(UserService userService,
+                            IOrderItemRepository orderItemRepository,
                             IOrderStatusRepository statusRepository,
-                            IOrderTableRepository tableRepository,
+                            IOrderTableRepository orderRepository,
+                            PaymentService paymentService,
                             EventBus eventBus, ItemService itemService) {
-        this.itemRepository = itemRepository;
+        this.userService = userService;
+        this.orderItemRepository = orderItemRepository;
         this.statusRepository = statusRepository;
-        this.tableRepository = tableRepository;
+        this.orderRepository = orderRepository;
+        this.paymentService = paymentService;
         this.eventBus = eventBus;
         this.itemService = itemService;
     }
 
     @Override
-    public OrderDTO createOrder(UUID userUUID) throws NoSuchElementException {
-        Optional<OrderStatus> collectingStatusOptional = statusRepository.findOrderStatusByName("COLLECTING");
-        if (collectingStatusOptional.isEmpty()) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "COLLECTING");
-            }
-            throw new NoSuchElementException(String.format("No status with name %s", "COLLECTING"));
-        }
-
+    public OrderDTO createOrder(UUID userId) {
+        OrderStatus statusCollecting = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
         OrderTable order = new OrderTable();
         order.setTimeCreated(Instant.now().getEpochSecond());
-        order.setStatus(collectingStatusOptional.get());
-        order.setUserId(userUUID);
-        tableRepository.save(order);
+        order.setStatus(statusCollecting);
+        order.setUserId(userId);
+        orderRepository.save(order);
 
         if (eventLogger != null) {
             eventLogger.info(OrderServiceNotableEvent.I_ORDER_CREATED, order.getId());
@@ -84,235 +90,262 @@ public class OrderItemService implements IOrderService {
     }
 
     @Override
-    public OrderDTO getOrder(UUID orderUUID) throws NoSuchElementException {
-        return OrderTableToOrderDTO.toDTO(getOrderByUUID(orderUUID));
+    public OrderDTO describeOrder(UUID userId, UUID orderId) {
+        return OrderTableToOrderDTO.toDTO(getOrderOrThrow(orderId, userId));
     }
 
     @Override
-    public void addItem(UUID orderUUID, UUID itemUUID, Integer amount) throws NoSuchElementException {
-        OrderTable order = getOrderByUUID(orderUUID);
+    public void addItem(UUID userId, UUID orderId, UUID itemId, int amount) {
+        /* COLLECTING -> COLLECTING */
+        /* BOOKED -> COLLECTING */
+        OrderTable order = getOrderOrThrow(orderId, userId);
+        var status = IOrderStatusRepository.StatusNames.valueOf(order.getStatus().getName());
+        switch (status) {
+            case COLLECTING:
+                /* Already in COLLECTING state, nothing to do */
+                break;
 
-        if (!order.getStatus().getName().equals("BOOKED")){
-            Optional<OrderStatus> collectingStatusOptional = statusRepository.findOrderStatusByName("COLLECTING");
-            if (collectingStatusOptional.isEmpty()) {
-                if (eventLogger != null) {
-                    eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "COLLECTING");
+            case BOOKED:
+                /* Must be un-booked and made COLLECTING */
+                try {
+                    paymentService.cancelPayment(userId, orderId);
+                } catch (PaymentInfoNotFoundException e) {
+                    throw new RuntimeException("PaymentInfoNotFoundException: Should not be reached", e);
+                } catch (PaymentInUninterruptibleProcessing e) {
+                    /* Cannot cancel payment - already paid, transaction in progress */
+                    throw new BadOperationForCurrentOrderStatus("'AddItem' cannot be performed because of payment processing", orderId);
                 }
-                throw new NoSuchElementException(String.format("No status with name %s", "COLLECTING"));
-            }
-            order.setStatus(collectingStatusOptional.get());
+
+                order.setStatus(statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name()));
+                itemService.cancelBooking(order.getLastBookingId());
+                orderRepository.save(order);
+                break;
+
+            default:
+                throw new BadOperationForCurrentOrderStatus("'AddItem' allowed only for 'BOOKED' or 'COLLECTING' order", orderId, status);
         }
+
+        ItemDTO item;
         try {
-            ItemDTO itemDTO = itemService.describeItem(itemUUID);
-            OrderItem item = new OrderItem();
-            item.setOrderId(orderUUID);
-            item.setPrice(itemDTO.getPrice());
-            item.setOrder(order);
-            item.setAmount(amount);
-            item.setItemId(itemUUID);
-            itemRepository.save(item);
-            if (eventLogger != null) {
-                eventLogger.info(OrderServiceNotableEvent.I_ITEM_ADDED, itemUUID);
-            }
+            item = itemService.describeItem(itemId);
         } catch (ItemNotFoundException exception) {
             if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
+                eventLogger.error(OrderServiceNotableEvent.E_ITEM_NOT_FOUND, exception.getMessage());
             }
-            throw new InvalidItemException(exception.getMessage());
+            throw exception;
+        }
+
+        Optional<OrderItem> maybeOrderItem = orderItemRepository.findById(new OrderItemID(orderId, itemId));
+        OrderItem orderItem = maybeOrderItem.orElseGet(OrderItem::new);
+        orderItem.setOrderId(orderId);
+        orderItem.setPrice(item.getPrice());
+        orderItem.setOrder(order);
+        orderItem.setAmount(amount);
+        orderItem.setItemId(itemId);
+
+        orderItemRepository.save(orderItem);
+        if (eventLogger != null) {
+            eventLogger.info(OrderServiceNotableEvent.I_ITEM_ADDED, itemId);
         }
     }
 
     @Override
-    public BookingDTO setTime(UUID orderUUID, Integer slot) throws NoSuchElementException {
-        OrderTable order = getOrderByUUID(orderUUID);
-        order.setDeliveryDuration(slot);
-        tableRepository.save(order);
+    public BookingDTO setTimeSlot(UUID userId, UUID orderId, int time) {
+        /* BOOKED -> BOOKED */
+        var order = getOrderOrThrow(orderId, userId);
 
-        BookingDTO bookingDTO = new BookingDTO();
-        bookingDTO.setUuid(orderUUID);
-        bookingDTO.setFailedItems(
-                itemService.listBookingLogRecords(order.getLastBookingId()).stream()
-                        .filter(it -> it.getStatus().equals("FAILED"))
-                        .map(BookingLogRecordDTO::getItemId).collect(Collectors.toSet())
-        );
+        var status = IOrderStatusRepository.StatusNames.valueOf(order.getStatus().getName());
+        //noinspection SwitchStatementWithTooFewBranches
+        switch (status) {
+            //case COLLECTING: /* TODO should we allow set time slot while COLLECTING? The behaviour must be concreted */
+            case BOOKED:
+                break;
+            default:
+                throw new BadOperationForCurrentOrderStatus("'SetTimeSlot' allowed only for 'BOOKED' order", orderId, status);
+        }
+
+        order.setDeliverySlot(time);
+        orderRepository.save(order);
+
+        var bookingDescription = itemService.describeBooking(order.getLastBookingId());
 
         if (eventLogger != null) {
-            eventLogger.info(OrderServiceNotableEvent.I_ORDER_SET_TIME, orderUUID);
+            eventLogger.info(OrderServiceNotableEvent.I_ORDER_SET_TIME, orderId);
         }
-        return bookingDTO;
+        return new BookingDTO(bookingDescription.getBookingId(), bookingDescription.getFailedItems().keySet());
     }
 
     @Override
-    public BookingDTO finalizeOrder(UUID orderUUID) throws NoSuchElementException {
-//        TODO will be updated to be in sync with catalog service updates
-        throw new RuntimeException("Not implemented yet");
-//        Optional<OrderStatus> finalizeStatusOptional = statusRepository.findOrderStatusByName("BOOKED");
-//        if (finalizeStatusOptional.isEmpty()) {
-//            if (eventLogger != null) {
-//                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "BOOKED");
-//            }
-//            throw new NoSuchElementException(String.format("No status with name %s", "BOOKED"));
-//        }
-//        try {
-//            OrderTable order = getOrderByUUID(orderUUID);
-//            if (Objects.equals(order.getStatus().getName(), "BOOKED")) {
-//                if (eventLogger != null) {
-//                    eventLogger.error(OrderServiceNotableEvent.E_ORDER_ALREADY_BOOKED, orderUUID);
-//                }
-//                throw new OrderAlreadyBookedException(String.format("Order with uuid %s already booked", orderUUID));
-//            }
-//            order.setStatus(finalizeStatusOptional.get());
-//
-//            HashMap<UUID, Integer> items = new HashMap<>();
-//            Set<OrderItem> addedItems = order.getOrderItems();
-//            for (OrderItem orderItem : addedItems) {
-//                items.put(orderItem.getItemId(), orderItem.getAmount());
-//            }
-//            BookingDTO bookingDTO = itemService.book(items);
-//            order.setLastBookingId(bookingDTO.getUuid());
-//            tableRepository.save(order);
-//            if (eventLogger != null) {
-//                eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderUUID);
-//            }
-//            eventBus.post(new OrderFinalizedEvent(OrderTableToOrderDTO.toDTO(order)));
-//            return bookingDTO;
-//        } catch (ItemNotFoundException exception) {
-//            if (eventLogger != null) {
-//                eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
-//            }
-//            throw new NoSuchElementException(exception.getMessage());
-//        }
-    }
+    public BookingDTO finalizeOrder(UUID userId, UUID orderId) {
+        /* COLLECTING -> BOOKED */
+        OrderTable order = getOrderOrThrow(orderId, userId);
+        var collectingStatus = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
 
-    @Subscribe
-    public void handleSuccessDelivery(DeliveryTransactionSuccessEvent event) {
-        OrderTable order = getOrderByUUID(event.getOrderId());
-        Optional<OrderStatus> completedStatusOptional = statusRepository.findOrderStatusByName("COMPLETED ");
-        if (completedStatusOptional.isEmpty()) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "COMPLETED ");
-            }
-            throw new NoSuchElementException(String.format("No status with name %s", "COMPLETED "));
+        if (!order.getStatus().equals(collectingStatus)) {
+            var status = IOrderStatusRepository.StatusNames.valueOf(order.getStatus().getName());
+            throw new BadOperationForCurrentOrderStatus("'FinalizeOrder' allowed only for 'COLLECTING' order", orderId, status);
         }
-        order.setStatus(completedStatusOptional.get());
-        tableRepository.save(order);
+
+        var statusBooked = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.BOOKED.name());
+        var items = order.getOrderItems().stream().collect(Collectors.toMap(OrderItem::getItemId, OrderItem::getAmount));
+
+        BookingDescriptionDto bookingResult;
+        try {
+            bookingResult = itemService.book(items);
+        } catch (ItemNotFoundException e) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_ITEM_NOT_FOUND, e.getMessage());
+            }
+            throw e;
+        }
+        order.setStatus(statusBooked);
+        order.setLastBookingId(bookingResult.getBookingId());
+        orderRepository.save(order);
+
         if (eventLogger != null) {
-            eventLogger.error(OrderServiceNotableEvent.I_ORDER_END_DELIVERY, event.getOrderId());
+            eventLogger.info(OrderServiceNotableEvent.I_ORDER_BOOKED, orderId);
         }
+
+        try {
+            /* TODO retrieve adekvatny amount from item service while booking */
+            var amount = 42;
+            paymentService.submitPayment(userId, orderId, amount, BOOKING_TIMEOUT_MILLIS);
+        } catch (PaymentAlreadyExistsException e) {
+            throw new RuntimeException("Should not be reached", e);
+        }
+        return new BookingDTO(bookingResult.getBookingId(), bookingResult.getFailedItems().keySet());
     }
 
     @Subscribe
-    public void handleStartDelivery(OrderStartDeliveryTransactionEvent event) {
-        OrderTable order = getOrderByUUID(event.getOrderID());
-        Optional<OrderStatus> shippingStatusOptional = statusRepository.findOrderStatusByName("SHIPPING ");
-        if (shippingStatusOptional.isEmpty()) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "SHIPPING ");
-            }
-            throw new NoSuchElementException(String.format("No status with name %s", "SHIPPING "));
-        }
-        order.setStatus(shippingStatusOptional.get());
-        tableRepository.save(order);
-        if (eventLogger != null) {
-            eventLogger.error(OrderServiceNotableEvent.I_ORDER_START_DELIVERY, event.getOrderID());
-        }
-    }
+    @Override
+    public void handlePaymentSuccess(PaymentSuccessfulEvent event) {
+        /* BOOKED -> PAID */
+        /* PAID -> REFUND */
+        OrderTable order = paymentEventCommonPreHandler(event);
 
-    @Subscribe
-    public void handleFailedDelivery(DeliveryTransactionFailedEvent event) {
-//        OrderTable order = getOrderByUUID(event.getOrderId());
-//        Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND ");
-//        if (refundStatusOptional.isEmpty()) {
-//            if (eventLogger != null) {
-//                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "REFUND ");
-//            }
-//            throw new NoSuchElementException(String.format("No status with name %s", "REFUND "));
-//        }
-//        order.setStatus(refundStatusOptional.get());
-//        HashMap<UUID, Integer> items = new HashMap<>();
-//        Set<OrderItem> bookedItems =  order.getOrderItems();
-//        for (OrderItem orderItem : bookedItems) {
-//            items.put(orderItem.getItemId(), orderItem.getAmount());
-//        }
-//        itemService.cancelBooking(order.getLastBookingId());
-//        eventBus.post(new RefundOrderRequestEvent(event.getOrderId(), new Double(getAmount(event.getOrderId()))));
-//        if (eventLogger != null) {
-//            eventLogger.error(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
-//        }
-    }
-
-    @Subscribe
-    public void handleSuccessPaid(OrderSuccessPaidEvent event) {
-        Optional<OrderStatus> paidStatusOptional = statusRepository.findOrderStatusByName("PAID");
-        if (paidStatusOptional.isEmpty()) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "PAID");
-            }
-            throw new NoSuchElementException(String.format("No status with name %s", "PAID"));
-        }
-        OrderTable order = getOrderByUUID(event.getOrderID());
-        order.setStatus(paidStatusOptional.get());
-        tableRepository.save(order);
-    }
-
-    @Subscribe
-    public void handleFailedPaid(OrderFailedPaidEvent event) {
-        Optional<OrderStatus> discardStatusOptional = statusRepository.findOrderStatusByName("DISCARD");
-        if (discardStatusOptional.isEmpty()) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "DISCARD");
-            }
-            throw new NoSuchElementException(String.format("No status with name %s", "DISCARD"));
-        }
-        OrderTable order = getOrderByUUID(event.getOrderID());
-        order.setStatus(discardStatusOptional.get());
-        tableRepository.save(order);
-        itemService.cancelBooking(order.getLastBookingId());
-    }
-
-    @Subscribe
-    public void handleRefundAnswer(RefundOrderAnswerEvent event) {
-//        if (PaymentStatusRepository.VALUES.FAILED.name().equals(event.getRefundStatus())) {
-//        } else {
-//            Optional<OrderStatus> refundStatusOptional = statusRepository.findOrderStatusByName("REFUND");
-//            if (refundStatusOptional.isEmpty()) {
-//                if (eventLogger != null) {
-//                    eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_STATUS, "REFUND");
-//                }
-//                throw new NoSuchElementException(String.format("No status with name %s", "REFUND"));
-//            }
-//            OrderTable order = getOrderByUUID(event.getOrderUUID());
-//            order.setStatus(refundStatusOptional.get());
-//            tableRepository.save(order);
-//            itemService.cancelBooking(order.getLastBookingId());
-//        }
-    }
-
-    public Integer getAmount(UUID orderUUID) throws NoSuchElementException{
-        OrderTable orderTable = this.getOrderByUUID(orderUUID);
-        int amount = 0;
-        for (OrderItem item : orderTable.getOrderItems()) {
-            try {
-                ItemDTO itemDTO = itemService.describeItem(item.getItemId());
-                amount += itemDTO.getAmount();
-            } catch (ItemNotFoundException exception) {
-                if (eventLogger != null) {
-                    eventLogger.error(OrderServiceNotableEvent.E_CAN_NOT_CONNECT_TO_ITEM_SERVICE, exception.getMessage());
+        switch (event.getOperationType()) {
+            case REFUND:
+//                TODO uncomment, now we calling onRefundComplete triggerRefund
+//                onRefundComplete(order);
+                break;
+            case WITHDRAW:
+                OrderStatus statusPaid = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.PAID.name());
+                order.setStatus(statusPaid);
+                orderRepository.save(order);
+                itemService.completeBooking(order.getLastBookingId());
+                if (order.getDeliverySlot() == null) {
+                    triggerRefund(order);
+                } else {
+                    eventBus.post(new StartDeliveryEvent(order.getId(), order.getUserId(), order.getDeliverySlot()));
                 }
-                throw new NoSuchElementException(String.format(exception.getMessage()));
-            }
+                break;
         }
-        return amount;
     }
 
-    private OrderTable getOrderByUUID(UUID orderUUID) {
-        Optional<OrderTable> orderTableOptional = tableRepository.findById(orderUUID);
-        if (orderTableOptional.isEmpty()) {
-            if (eventLogger != null) {
-                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_ORDER, orderUUID);
-            }
-            throw new NoSuchElementException(String.format("No order with uuid %s", orderUUID));
+    @Subscribe
+    @Override
+    public void handlePaymentFault(PaymentFailedEvent event) {
+        /* BOOKED -> BOOKED */
+        /* PAID -> [trigger refund] */
+        OrderTable order = paymentEventCommonPreHandler(event);
+
+        switch (event.getOperationType()) {
+            case REFUND:
+                /* Retry refund */
+//                TODO uncomment, now we calling onRefundComplete triggerRefund
+//                triggerRefund(order);
+                break;
+            case WITHDRAW:
+                /* Ignore and let handlePaymentCancellation() do everything */
+                break;
         }
-        return orderTableOptional.get();
+    }
+
+    @Subscribe
+    @Override
+    public void handlePaymentCancellation(PaymentCancelledEvent event) {
+        /* BOOKED -> COLLECTING */
+        OrderTable order = paymentEventCommonPreHandler(event);
+        itemService.cancelBooking(order.getLastBookingId());
+        OrderStatus statusCollecting = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
+        order.setStatus(statusCollecting);
+        orderRepository.save(order);
+    }
+
+    @Subscribe
+    @Override
+    public void handleDeliverySuccess(DeliveryStatusSuccessEvent event) {
+        /* PAID -> COMPLETED */
+        OrderTable order = deliveryEventCommonPreHandler(event);
+        OrderStatus statusComplete = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COMPLETED.name());
+        order.setStatus(statusComplete);
+        order.setDeliveryDuration(event.getDeliveryDuration());
+        orderRepository.save(order);
+        if (eventLogger != null) {
+            eventLogger.info(OrderServiceNotableEvent.I_ORDER_END_DELIVERY, event.getOrderId());
+        }
+    }
+
+    @Subscribe
+    @Override
+    public void handleDeliveryFault(DeliveryStatusFailedEvent event) {
+        /* PAID -> REFUND */
+        triggerRefund(deliveryEventCommonPreHandler(event));
+        if (eventLogger != null) {
+            eventLogger.info(OrderServiceNotableEvent.I_ORDER_FAILED_DELIVERY, event.getOrderId());
+        }
+    }
+
+    private void triggerRefund(OrderTable order) {
+        /* TODO retrieve adekvatny amount from item service while booking */
+        var amount = 42;
+        eventBus.post(new RefundRequestEvent(order.getId(), order.getUserId(), amount));
+
+        /* TODO remove onRefundComplete, it should be called on transaction finish! */
+        onRefundComplete(order);
+    }
+
+    private void onRefundComplete(OrderTable order) {
+        /* <ANY> -> REFUND */
+        itemService.processRefund(order.getLastBookingId());
+        OrderStatus statusRefund = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.REFUND.name());
+        order.setStatus(statusRefund);
+        orderRepository.save(order);
+    }
+
+    private OrderTable deliveryEventCommonPreHandler(DeliveryStatusEvent event) {
+        OrderTable order = getOrderOrThrow(event.getOrderId(), event.getUserId());
+        switch (IOrderStatusRepository.StatusNames.valueOf(order.getStatus().getName())) {
+            case PAID:
+            case SHIPPING:
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+        return order;
+    }
+
+    private OrderTable paymentEventCommonPreHandler(PaymentStatusEvent event) {
+        OrderTable order = getOrderOrThrow(event.getOrderId(), event.getUserId());
+        if (IOrderStatusRepository.StatusNames.valueOf(order.getStatus().getName()) != IOrderStatusRepository.StatusNames.BOOKED) {
+            throw new IllegalStateException();
+        }
+        return order;
+    }
+
+    private OrderTable getOrderOrThrow(UUID orderId, UUID userId) {
+        Optional<OrderTable> orderOptional = orderRepository.findById(orderId);
+        if (orderOptional.isEmpty()) {
+            if (eventLogger != null) {
+                eventLogger.error(OrderServiceNotableEvent.E_NO_SUCH_ORDER, orderId);
+            }
+            throw new OrderNotFoundException("No order with id=" + orderId);
+        }
+
+        /* Basic user can access only theirs orders, admin can access any order */
+        if (!orderOptional.get().getUserId().equals(userId) && !userService.getUserByID(userId).isAdmin()) {
+            throw new OrderNotFoundException("No order with id=" + orderId);
+        }
+        return orderOptional.get();
     }
 }

@@ -5,11 +5,13 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface IOrderStatusRepository extends JpaRepository<OrderStatus, UUID> {
-    @NotNull
-    Optional<OrderStatus> findOrderStatusByName(@NotNull String name);
+    OrderStatus findOrderStatusByName(@NotNull String name);
+
+    enum StatusNames {
+        COLLECTING, DISCARD, BOOKED, PAID, SHIPPING, REFUND, COMPLETED
+    }
 }

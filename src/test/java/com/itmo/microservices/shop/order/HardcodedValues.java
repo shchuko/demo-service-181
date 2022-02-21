@@ -1,6 +1,7 @@
 package com.itmo.microservices.shop.order;
 
 import com.itmo.microservices.shop.order.impl.entity.OrderStatus;
+import com.itmo.microservices.shop.order.impl.repository.IOrderStatusRepository;
 
 import java.util.UUID;
 
@@ -20,10 +21,10 @@ public class HardcodedValues {
     {
         collectedStatus = new OrderStatus();
         collectedStatus.setId(1);
-        collectedStatus.setName("COLLECTED");
+        collectedStatus.setName(IOrderStatusRepository.StatusNames.COLLECTING.name());
 
         bookedStatus = new OrderStatus();
         bookedStatus.setId(2);
-        bookedStatus.setName("BOOKED");
+        bookedStatus.setName(IOrderStatusRepository.StatusNames.BOOKED.name());
     }
 }

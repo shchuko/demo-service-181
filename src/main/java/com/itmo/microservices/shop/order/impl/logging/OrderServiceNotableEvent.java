@@ -17,7 +17,7 @@ public enum OrderServiceNotableEvent implements NotableEvent {
     E_NO_SUCH_ORDER("No such order with UUID {}"),
     E_NO_SUCH_STATUS("No such status with name {}"),
     E_ORDER_ALREADY_BOOKED("Order with UUID {} was already booked"), // future feature
-    E_CAN_NOT_CONNECT_TO_ITEM_SERVICE("Item service send error {}"), // future feature
+    E_ITEM_NOT_FOUND("Item service send error {}"), // future feature
     E_ACCESS_TO_FOREIGN_ORDER("User UUID {} is not equal to user UUID in order"); // future feature
 
     private final String template;

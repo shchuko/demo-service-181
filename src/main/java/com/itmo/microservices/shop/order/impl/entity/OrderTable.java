@@ -1,13 +1,14 @@
 package com.itmo.microservices.shop.order.impl.entity;
 
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-import javax.persistence.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.hibernate.Hibernate;
+
+import javax.persistence.*;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -20,6 +21,7 @@ public class OrderTable {
   private UUID id;
   private Long timeCreated;
   private Integer deliveryDuration;
+  private Integer deliverySlot;
   private UUID userId;
   private UUID lastBookingId;
 

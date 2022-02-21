@@ -6,19 +6,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-
 @ActiveProfiles("dev")
 class OrderStatusRepositoryTest extends DataJpaTestCase {
     @Autowired
     private IOrderStatusRepository repository;
     @Test
     void findOrderStatusByName() {
-        assertFalse(repository.findOrderStatusByName("COLLECTING").isEmpty());
-        assertFalse(repository.findOrderStatusByName("DISCARD").isEmpty());
-        assertFalse(repository.findOrderStatusByName("BOOKED").isEmpty());
-        assertFalse(repository.findOrderStatusByName("PAID").isEmpty());
-        assertFalse(repository.findOrderStatusByName("SHIPPING").isEmpty());
-        assertFalse(repository.findOrderStatusByName("REFUND").isEmpty());
+        repository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
+        repository.findOrderStatusByName(IOrderStatusRepository.StatusNames.DISCARD.name());
+        repository.findOrderStatusByName(IOrderStatusRepository.StatusNames.BOOKED.name());
+        repository.findOrderStatusByName(IOrderStatusRepository.StatusNames.PAID.name());
+        repository.findOrderStatusByName(IOrderStatusRepository.StatusNames.SHIPPING.name());
+        repository.findOrderStatusByName(IOrderStatusRepository.StatusNames.REFUND.name());
     }
 }

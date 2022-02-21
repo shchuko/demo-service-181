@@ -35,6 +35,9 @@
       <column name="delivery_duration" type="int">
         <constraints nullable="true"/>
       </column>
+      <column name="delivery_slot" type="int">
+        <constraints nullable="true"/>
+      </column>
       <column name="user_id" type="uuid">
         <constraints nullable="false"/>
       </column>
