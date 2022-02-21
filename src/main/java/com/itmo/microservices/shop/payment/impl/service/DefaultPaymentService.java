@@ -69,6 +69,25 @@ public class DefaultPaymentService implements PaymentService {
 
     private final EventBus eventBus;
 
+    {
+        pendingPaymentsProcessingExecutor.scheduleAtFixedRate(() -> {
+                    synchronized (submittedPayments) {
+                        var expired = submittedPayments.entrySet().stream()
+                                .filter(it -> it.getValue().isExpired())
+                                .map(Map.Entry::getKey).collect(Collectors.toList());
+
+                        expired.forEach(it -> {
+                            try {
+                                cancelPayment(it.userId, it.orderId);
+                            } catch (PaymentInfoNotFoundException | PaymentInUninterruptibleProcessing e) {
+                                /* TODO eventBus: post */
+                            }
+                        });
+                    }
+                },
+                0, 5, TimeUnit.SECONDS);
+    }
+
     @Override
     @NotNull
     public PaymentSubmissionDto payForOrder(@NotNull UUID userId, @NotNull UUID orderId) throws PaymentFailedException, PaymentAlreadyExistsException, PaymentInfoNotFoundException {
@@ -100,17 +119,8 @@ public class DefaultPaymentService implements PaymentService {
                 /* TODO eventBus: post */
                 throw new PaymentAlreadyExistsException("Payment for orderId='" + orderId + "' already submitted");
             }
-            submittedPayments.put(key, new SubmittedPaymentValue(amount, FinancialOperationTypeRepository.VALUES.WITHDRAW));
+            submittedPayments.put(key, new SubmittedPaymentValue(amount, FinancialOperationTypeRepository.VALUES.WITHDRAW, expirationTimeoutMillis));
         }
-
-        pendingPaymentsProcessingExecutor.schedule(() -> {
-            try {
-                cancelPayment(userId, orderId);
-                /* TODO eventBus: post */
-            } catch (PaymentException ignored) {
-                /* TODO eventBus: post */
-            }
-        }, expirationTimeoutMillis, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -148,7 +158,7 @@ public class DefaultPaymentService implements PaymentService {
                 /* TODO eventBus: post */
                 throw new PaymentAlreadyExistsException("Payment for orderId='" + orderId + "' already exists");
             }
-            submittedPayments.put(key, new SubmittedPaymentValue(event.getAmount(), operationType, true));
+            submittedPayments.put(key, new SubmittedPaymentValue(event.getAmount(), operationType, -1, true));
         }
 
         try {
@@ -339,18 +349,30 @@ public class DefaultPaymentService implements PaymentService {
 
         boolean nowProcessing;
 
-        SubmittedPaymentValue(int amount, @NotNull FinancialOperationTypeRepository.VALUES operationType, boolean nowProcessing) {
+        private final long expiresOnNanos;
+        private final boolean neverExpire;
+
+        SubmittedPaymentValue(int amount, @NotNull FinancialOperationTypeRepository.VALUES operationType, long expirationTimeMillis, boolean nowProcessing) {
+            this.neverExpire = expirationTimeMillis < 0;
             this.amount = amount;
             this.operationType = operationType;
             this.nowProcessing = nowProcessing;
+            this.expiresOnNanos = System.nanoTime() + expirationTimeMillis * 1000000;
         }
 
-        SubmittedPaymentValue(int amount, @NotNull FinancialOperationTypeRepository.VALUES operationType) {
-            this(amount, operationType, false);
+        SubmittedPaymentValue(int amount, @NotNull FinancialOperationTypeRepository.VALUES operationType, long expirationTimeMillis) {
+            this(amount, operationType, expirationTimeMillis, false);
         }
 
         void setNowProcessing(boolean value) {
             this.nowProcessing = value;
+        }
+
+        boolean isExpired() {
+            if (neverExpire) {
+                return false;
+            }
+            return System.nanoTime() > expiresOnNanos;
         }
     }
 }

@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 @Service
 @SuppressWarnings("UnstableApiUsage")
 public class OrderItemService implements IOrderService {
-    private static final long BOOKING_TIMEOUT_MILLIS = 1000 * 60;
+    private static final long BOOKING_TIMEOUT_MILLIS = 1000 * 60 * 5; // 5 minutes to pay for the order
 
     private final UserService userService;
     private final IOrderItemRepository orderItemRepository;
