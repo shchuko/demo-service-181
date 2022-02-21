@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: 2022-02-21-01-fill-tables.xml
+      relativeToChangelogFile: true

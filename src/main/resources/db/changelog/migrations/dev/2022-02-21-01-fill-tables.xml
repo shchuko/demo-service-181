@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="2021-02-21-01-fill-tables" author="Vladislav Yaroshchuk" context="dev">
+        <!--  Fill order_status table   -->
+        <insert tableName="user">
+            <column name="id" value="4fed9131-6e4b-4542-afc0-36eaa275a023"/>
+            <column name="username" value="string"/>
+            <column name="password_hash" value="$2a$10$UiCFsKwhygMb4ts9HxczTu1yPr6IrXFliTLcoxPv.2xLOQgVDmRTG"/>
+            <column name="is_admin" value="TRUE"/>
+        </insert>
+
+        <insert tableName="user">
+            <column name="id" value="1e0c0a69-47dc-4fa7-a80b-6b8f673cb036"/>
+            <column name="username" value="notadmin"/>
+            <column name="password_hash" value="$2a$10$UiCFsKwhygMb4ts9HxczTu1yPr6IrXFliTLcoxPv.2xLOQgVDmRTG"/>
+            <column name="is_admin" value="FALSE"/>
+        </insert>
+
+        <insert tableName="item">
+            <column name="id" value="dacea01e-9e04-4106-a69c-845c84c5ca8c"/>
+            <column name="name" value="SomeItem1"/>
+            <column name="amount" value="100"/>
+            <column name="description" value="Some Item 1"/>
+            <column name="price" value="100"/>
+        </insert>
+
+        <insert tableName="item">
+            <column name="id" value="935e95d4-acb1-4fc0-a30c-ba44c2d73337"/>
+            <column name="name" value="SomeItem2"/>
+            <column name="amount" value="100"/>
+            <column name="description" value="Some Item 2"/>
+            <column name="price" value="100"/>
+        </insert>
+
+        <insert tableName="item">
+            <column name="id" value="524debb6-cb1a-4799-a384-2498b0bb6af7"/>
+            <column name="name" value="SomeItem3"/>
+            <column name="amount" value="100"/>
+            <column name="description" value="Some Item 3"/>
+            <column name="price" value="100"/>
+        </insert>
+
+        <insert tableName="order_table">
+            <column name="id" value="f2baa913-58fc-4546-a0fe-6bf79d1fa068"/>
+            <column name="user_id" value="4fed9131-6e4b-4542-afc0-36eaa275a023"/>
+            <column name="status_id" value="1"/>
+            <column name="time_created" value="42"/>
+        </insert>
+
+    </changeSet>
+</databaseChangeLog>
