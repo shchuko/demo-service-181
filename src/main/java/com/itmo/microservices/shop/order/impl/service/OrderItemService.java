@@ -233,7 +233,7 @@ public class OrderItemService implements IOrderService {
                 if (order.getDeliveryDuration() == null) {
                     triggerRefund(order);
                 } else {
-                    eventBus.post(new StartDeliveryEvent(order.getId(), order.getUserId(), order.getDeliverySlot()));
+                    eventBus.post(new StartDeliveryEvent(order.getId(), order.getUserId(), order.getDeliveryDuration()));
                 }
                 break;
         }
