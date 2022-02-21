@@ -7,17 +7,34 @@ import java.util.UUID;
 @Entity
 public class Booking {
     @Id
+    @GeneratedValue
     private UUID id;
 
     @ManyToOne(fetch = FetchType.EAGER)
     private BookingStatus bookingStatus;
 
-    @OneToMany(fetch = FetchType.LAZY)
+    @OneToMany(fetch = FetchType.EAGER)
     @JoinColumn(name = "bookingId")
     private Set<BookingLogRecord> bookingLogRecords;
 
     public Booking() {
 
+    }
+
+    public Booking(BookingStatus bookingStatus) {
+        this.bookingStatus = bookingStatus;
+    }
+
+    public Booking(BookingStatus bookingStatus, Set<BookingLogRecord> bookingLogRecords) {
+        this.bookingStatus = bookingStatus;
+        this.bookingLogRecords = bookingLogRecords;
+    }
+
+
+    public Booking(UUID id, BookingStatus bookingStatus, Set<BookingLogRecord> bookingLogRecords) {
+        this.id = id;
+        this.bookingStatus = bookingStatus;
+        this.bookingLogRecords = bookingLogRecords;
     }
 
     public UUID getId() {
@@ -26,10 +43,6 @@ public class Booking {
 
     public void setId(UUID id) {
         this.id = id;
-    }
-
-    public Booking(BookingStatus bookingStatus) {
-        this.bookingStatus = bookingStatus;
     }
 
     public BookingStatus getBookingStatus() {

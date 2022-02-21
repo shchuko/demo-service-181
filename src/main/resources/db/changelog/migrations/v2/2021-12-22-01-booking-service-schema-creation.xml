@@ -64,10 +64,16 @@
 
         <!--  Fill booking_log_record_status table   -->
         <insert tableName="booking_status">
-            <column name="name" value="FAILED"/>
+            <column name="name" value="CREATED"/>
         </insert>
         <insert tableName="booking_status">
-            <column name="name" value="SUCCESS"/>
+            <column name="name" value="CANCELLED"/>
+        </insert>
+        <insert tableName="booking_status">
+            <column name="name" value="REFUND"/>
+        </insert>
+        <insert tableName="booking_status">
+            <column name="name" value="COMPLETE"/>
         </insert>
     </changeSet>
 </databaseChangeLog>

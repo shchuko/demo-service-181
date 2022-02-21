@@ -63,21 +63,19 @@ public class BookingStatus {
      * Status list:
      * <ul>
      * <li>CREATED - booking created</li>
-     * <li>CANCELLED - booking cancelled by the used or if expired (term)</li>
-     * <li>COMMITTED - commit booking, it cannot be expired</li>
-     * <li>REFUND - items refund to catalog by the user (term)</li>
-     * <li>COMPLETE - items is to user, cannot be refund</li>
+     * <li>CANCELLED - booking cancelled by the used</li>
+     * <li>COMPLETE - commit booking, it cannot be expired </li>
+     * <li>COMPLETE - items refund to catalog by the user </li>
      * </ul>
      * <p>
-     * Expected transitions:
+     * Possible transitions:
      * <ul>
-     * <li>CREATED -> CANCELLED (termination state)</li>
-     * <li>CREATED -> COMMITTED</li>
-     * <li>COMMITTED -> REFUND (termination state)</li>
-     * <li>COMMITTED -> COMPLETE (termination state)</li>
+     * <li>CREATED -> CANCELLED</li>
+     * <li>CREATED -> COMPLETE</li>
+     * <li>COMPLETE -> REFUND</li>
      * </ul>
      */
     public enum StatusStrings {
-        CREATED, CANCELLED, COMMITTED, REFUND, COMPLETE
+        CREATED, CANCELLED, REFUND, COMPLETE
     }
 }

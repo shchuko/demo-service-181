@@ -5,8 +5,7 @@ import com.itmo.microservices.commonlib.annotations.InjectEventLogger
 import com.itmo.microservices.commonlib.logging.EventLogger
 import com.itmo.microservices.shop.catalog.api.exceptions.BookingNotFoundException
 import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException
-import com.itmo.microservices.shop.catalog.api.messaging.BookingExpiredAndCancelledEvent
-import com.itmo.microservices.shop.catalog.api.model.BookingCreationDto
+import com.itmo.microservices.shop.catalog.api.model.BookingDescriptionDto
 import com.itmo.microservices.shop.catalog.api.model.BookingLogRecordDTO
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO
 import com.itmo.microservices.shop.catalog.api.service.ItemService
@@ -25,7 +24,6 @@ import org.springframework.stereotype.Service
 import java.lang.System.currentTimeMillis
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.timerTask
 import kotlin.concurrent.withLock
 
 @Suppress("UnstableApiUsage")
@@ -112,9 +110,8 @@ class ItemServiceImpl(
     }
 
     @Throws(IllegalArgumentException::class)
-    override fun book(items: MutableMap<UUID, Int>, bookingCancelTimeoutMillis: Long): BookingCreationDto {
+    override fun book(items: MutableMap<UUID, Int>): BookingDescriptionDto {
         require(items.all { it.value > 0 }) { "Negative amount is not allowed" }
-
         val bookingStatusCreated =
             bookingStatusRepository.getBookingStatusByName(BookingStatus.StatusStrings.CREATED.name)
         val bookingLogRecordStatusSuccess =
@@ -126,8 +123,22 @@ class ItemServiceImpl(
         val booking = bookingRepository.save(Booking(bookingStatusCreated))
 
         /* bookingResult contains triples of <ItemID, BookedAmount, BookingSuccessFlag> */
-        val bookingResult = items.map { Triple(it.key, it.value, tryBookItem(it.key, it.value)) }.toList()
-        val failedItems = bookingResult.filter { it.third }.map { it.first }.toSet()
+        val bookingResult: MutableList<Triple<UUID, Int, Boolean>> = mutableListOf()
+
+
+        try {
+            for (it in items) {
+                val itemId = it.key
+                val amount = it.value
+                val bookingSuccessfulFlag = tryBookItem(itemId, amount)
+                bookingResult.add(Triple(itemId, amount, bookingSuccessfulFlag))
+            }
+        } catch (e: ItemNotFoundException) {
+            bookingResult.filter { it.third }.forEach { refundItem(it.first, it.second) }
+            throw e
+        }
+        val successItems = bookingResult.filter { it.third }.associate { it.first to it.second }
+        val failedItems = bookingResult.filter { !it.third }.associate { it.first to it.second }
 
         /* Save booking log record entities */
         for (it in bookingResult) {
@@ -135,24 +146,22 @@ class ItemServiceImpl(
             val timestamp = currentTimeMillis()
             bookingLogRecordRepository.save(BookingLogRecord(booking.id, it.first, status, it.second, timestamp))
         }
+        return BookingDescriptionDto(booking.id, successItems, failedItems)
+    }
 
-        /* Auto-cancel booking on timeout */
-        Timer().schedule(
-            timerTask {
-                var sendEvent = true
-                try {
-                    cancelBooking(booking.id)
-                } catch (_: IllegalStateException) {
-                    /* If the booking already cancelled or committed there's nothing to cancel */
-                    sendEvent = false
-                }
 
-                if (sendEvent) {
-                    eventBus.post(BookingExpiredAndCancelledEvent(booking.id))
-                }
-            }, bookingCancelTimeoutMillis
-        )
-        return BookingCreationDto(booking.id, failedItems)
+    override fun describeBooking(bookingId: UUID): BookingDescriptionDto {
+        val booking = getBookingOrThrow(bookingId);
+        val records = booking.bookingLogRecords
+            .map { Triple(it.itemId, it.amount, it.bookingLogRecordStatus.toEnum()) }
+            .toList()
+
+        val successItems = records.filter { it.third == BookingLogRecordStatus.StatusStrings.SUCCESS }
+            .associate { it.first to it.second }
+        val failedItems = records.filter { it.third == BookingLogRecordStatus.StatusStrings.FAILED }
+            .associate { it.first to it.second }
+
+        return BookingDescriptionDto(bookingId, successItems, failedItems)
     }
 
     @Suppress("DuplicatedCode")
@@ -173,39 +182,26 @@ class ItemServiceImpl(
     }
 
 
-    @Throws(BookingNotFoundException::class)
-    override fun commitBooking(bookingId: UUID) {
-        val booking = getBookingOrThrow(bookingId)
-        if (booking.bookingStatus.toEnum() != BookingStatus.StatusStrings.CREATED) {
-            throw IllegalStateException()
-        }
-        // TODO refactor if proper warehouse processing requested
-        booking.bookingStatus =
-            bookingStatusRepository.getBookingStatusByName(BookingStatus.StatusStrings.COMMITTED.name)
-        bookingRepository.save(booking)
-    }
-
     @Suppress("DuplicatedCode")
     @Throws(BookingNotFoundException::class)
     override fun processRefund(bookingId: UUID) {
         // TODO refactor if proper warehouse processing requested
         val booking = getBookingOrThrow(bookingId)
-        if (booking.bookingStatus.toEnum() != BookingStatus.StatusStrings.COMMITTED) {
+        if (booking.bookingStatus.toEnum() != BookingStatus.StatusStrings.COMPLETE) {
             throw IllegalStateException()
         }
 
         booking.bookingLogRecords.filter { it.bookingLogRecordStatus.toEnum() == BookingLogRecordStatus.StatusStrings.SUCCESS }
             .forEach { refundItem(it.itemId, it.amount) }
 
-        booking.bookingStatus =
-            bookingStatusRepository.getBookingStatusByName(BookingStatus.StatusStrings.CANCELLED.name)
+        booking.bookingStatus = bookingStatusRepository.getBookingStatusByName(BookingStatus.StatusStrings.REFUND.name)
         bookingRepository.save(booking)
     }
 
     @Throws(BookingNotFoundException::class)
     override fun completeBooking(bookingId: UUID) {
         val booking = getBookingOrThrow(bookingId)
-        if (booking.bookingStatus.toEnum() != BookingStatus.StatusStrings.COMMITTED) {
+        if (booking.bookingStatus.toEnum() != BookingStatus.StatusStrings.CREATED) {
             throw IllegalStateException()
         }
 

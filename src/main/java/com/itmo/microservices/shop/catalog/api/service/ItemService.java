@@ -1,6 +1,6 @@
 package com.itmo.microservices.shop.catalog.api.service;
 
-import com.itmo.microservices.shop.catalog.api.model.BookingCreationDto;
+import com.itmo.microservices.shop.catalog.api.model.BookingDescriptionDto;
 import com.itmo.microservices.shop.catalog.api.model.BookingLogRecordDTO;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import org.jetbrains.annotations.NotNull;
@@ -17,6 +17,7 @@ public interface ItemService {
      *
      * @return List of items in catalog.
      */
+    @NotNull
     List<ItemDTO> listItems();
 
     /**
@@ -24,6 +25,7 @@ public interface ItemService {
      *
      * @return List of available items.
      */
+    @NotNull
     List<ItemDTO> listAvailableItems();
 
     /**
@@ -31,6 +33,7 @@ public interface ItemService {
      *
      * @return List of unavailable items.
      */
+    @NotNull
     List<ItemDTO> listUnavailableItems();
 
     /**
@@ -68,6 +71,7 @@ public interface ItemService {
      * @param bookingId Booking id to describe.
      * @return List of booking
      */
+    @NotNull
     List<BookingLogRecordDTO> listBookingLogRecords(@NotNull UUID bookingId);
 
     //endregion
@@ -80,42 +84,43 @@ public interface ItemService {
      * @param id Item ID.
      * @return Item description.
      */
+    @NotNull
     ItemDTO describeItem(@NotNull UUID id);
 
     /**
      * Create new booking. Initial status of booking is "CREATED".
-     * The booking will expire after bookingLiveTimeMillis timeot and will become "CANCELLED".
      *
      * @param items Map of items to book. The key is the item ID, the value is requested item count.
      * @return Booking description.
      */
-    BookingCreationDto book(@NotNull Map<UUID, Integer> items, long bookingLiveTimeMillis);
+    @NotNull
+    BookingDescriptionDto book(@NotNull Map<UUID, Integer> items);
 
     /**
-     * Cancel created booking. Can be called only if booking status is "CREATED".
+     * Describe existing booking.
+     *
+     * @param bookingId Booking ID.
+     */
+    @NotNull
+    BookingDescriptionDto describeBooking(@NotNull UUID bookingId);
+
+    /**
+     * Cancel created booking. Can be called only if booking status is "COMPLETE".
      *
      * @param bookingId Booking ID.
      */
     void cancelBooking(@NotNull UUID bookingId);
 
     /**
-     * Commit the booking. Allowed only if booking status is "CREATED".
-     * Booking "COMMITTED" means it can never expire and become "CANCELLED".
-     *
-     * @param bookingId Booking ID.
-     */
-    void commitBooking(@NotNull UUID bookingId);
-
-    /**
      * Unload items from catalog aka transfer to delivery service.
-     * Can be called only if booking status is "COMMITTED".
+     * Can be called only if booking status is "COMPLETE".
      *
      * @param bookingId Booking ID.
      */
     void processRefund(@NotNull UUID bookingId);
 
     /**
-     * Complete the booking. Allowed only if booking status is "COMMITTED".
+     * Complete the booking. Allowed only if booking status is "CREATED".
      * Status changes of "COMPLETE" booking is not allowed, it cannot be refund or cancelled.
      *
      * @param bookingId Booking ID.
