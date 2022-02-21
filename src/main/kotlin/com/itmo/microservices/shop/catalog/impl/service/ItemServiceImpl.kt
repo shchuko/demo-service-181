@@ -111,7 +111,7 @@ class ItemServiceImpl(
 
     @Throws(IllegalArgumentException::class)
     override fun book(items: MutableMap<UUID, Int>): BookingDescriptionDto {
-        require(items.all { it.value > 0 }) { "Negative amount is not allowed" }
+        require(items.all { it.value >= 0 }) { "Negative amount is not allowed" }
         val bookingStatusCreated =
             bookingStatusRepository.getBookingStatusByName(BookingStatus.StatusStrings.CREATED.name)
         val bookingLogRecordStatusSuccess =
