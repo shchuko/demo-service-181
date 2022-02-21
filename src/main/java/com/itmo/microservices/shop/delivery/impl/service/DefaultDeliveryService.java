@@ -19,13 +19,13 @@ import com.itmo.microservices.shop.common.transactions.WriteBackStorage;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionProcessingException;
 import com.itmo.microservices.shop.common.transactions.exception.TransactionStartException;
 import com.itmo.microservices.shop.common.transactions.functional.TransactionProcessor;
-import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionFailedEvent;
-import com.itmo.microservices.shop.delivery.api.messaging.DeliveryTransactionSuccessEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusFailedEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusSuccessEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryEvent;
 import com.itmo.microservices.shop.delivery.api.service.DeliveryService;
 import com.itmo.microservices.shop.delivery.impl.config.ExternalDeliveryServiceCredentials;
 import com.itmo.microservices.shop.delivery.impl.entity.DeliveryTransactionsProcessorWriteback;
 import com.itmo.microservices.shop.delivery.impl.repository.DeliveryTransactionsProcessorWritebackRepository;
-import com.itmo.microservices.shop.order.api.messaging.OrderStartDeliveryTransactionEvent;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -43,6 +43,7 @@ import static com.itmo.microservices.shop.delivery.impl.logging.DeliveryServiceN
 import static com.itmo.microservices.shop.delivery.impl.logging.DeliveryServiceNotableEvents.DELIVERY_SLOTS_REQUESTED_LIMITED;
 
 @Service
+@SuppressWarnings("UnstableApiUsage")
 public class DefaultDeliveryService implements DeliveryService {
     private static final long POLLING_RETRY_INTERVAL_MILLIS = 500;
     private static final int RETRYING_EXECUTOR_POOL_SIZE = 5;
@@ -92,7 +93,8 @@ public class DefaultDeliveryService implements DeliveryService {
     }
 
     @Subscribe
-    public void startAsyncTransactionToExternal(OrderStartDeliveryTransactionEvent event) {
+    @Override
+    public void handleStartDelivery(@NotNull StartDeliveryEvent event) {
         DeliveryTransactionsProcessorWriteback entry = new DeliveryTransactionsProcessorWriteback();
 
         entry.setOrderId(event.getOrderID());
@@ -112,7 +114,7 @@ public class DefaultDeliveryService implements DeliveryService {
                 transactionWrapper = syncTransactionProcessor.startTransaction(context);
             } catch (TransactionProcessingException e) {
                 // TODO collect metrics here
-                eventBus.post(new DeliveryTransactionFailedEvent(entry.getOrderId(),
+                eventBus.post(new DeliveryStatusFailedEvent(entry.getOrderId(),
                         entry.getUserId(),
                         entry.getTimeSlot()));
             }
@@ -142,12 +144,15 @@ public class DefaultDeliveryService implements DeliveryService {
     private void transactionCompletionProcessor(TransactionWrapper<TransactionResponseDto, UUID> transaction, TransactionContext context) {
         switch (transaction.getStatus()) {
             case SUCCESS:
-                eventBus.post(new DeliveryTransactionSuccessEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
+                /* TODO get rid of Long.valueOf().intValue() */
+                int duration = Long.valueOf(transaction.getWrappedObject().getCompletedTime() - transaction.getWrappedObject().getSubmitTime()).intValue();
+                eventBus.post(new DeliveryStatusSuccessEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
                         context.deliveryTransactionsProcessorWriteback.getUserId(),
-                        context.deliveryTransactionsProcessorWriteback.getTimeSlot()));
+                        context.deliveryTransactionsProcessorWriteback.getTimeSlot(),
+                        duration));
                 break;
             case FAILURE:
-                eventBus.post(new DeliveryTransactionFailedEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
+                eventBus.post(new DeliveryStatusFailedEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
                         context.deliveryTransactionsProcessorWriteback.getUserId(),
                         context.deliveryTransactionsProcessorWriteback.getTimeSlot()));
                 break;

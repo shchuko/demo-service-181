@@ -1,5 +1,6 @@
 package com.itmo.microservices.shop.delivery.api.service;
 
+import com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryEvent;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -21,4 +22,6 @@ public interface DeliveryService {
      */
     @NotNull
     List<Integer> getDeliverySlots();
+
+    void handleStartDelivery(@NotNull StartDeliveryEvent event);
 }

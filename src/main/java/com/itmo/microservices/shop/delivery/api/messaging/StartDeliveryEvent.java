@@ -1,13 +1,13 @@
-package com.itmo.microservices.shop.order.api.messaging;
+package com.itmo.microservices.shop.delivery.api.messaging;
 
 import java.util.UUID;
 
-public class OrderStartDeliveryTransactionEvent {
+public class StartDeliveryEvent {
     private UUID orderID;
     private UUID userID;
     private int timeSlot;
 
-    public OrderStartDeliveryTransactionEvent(UUID orderID, UUID userID, int timeSlot) {
+    public StartDeliveryEvent(UUID orderID, UUID userID, int timeSlot) {
         this.orderID = orderID;
         this.userID = userID;
         this.timeSlot = timeSlot;
