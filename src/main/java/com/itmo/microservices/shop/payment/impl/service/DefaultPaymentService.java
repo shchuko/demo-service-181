@@ -2,6 +2,7 @@ package com.itmo.microservices.shop.payment.impl.service;
 
 
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger;
 import com.itmo.microservices.commonlib.logging.EventLogger;
 import com.itmo.microservices.shop.common.executors.RetryingExecutorService;
@@ -129,11 +130,12 @@ public class DefaultPaymentService implements PaymentService {
             submittedPayments.remove(new SubmittedPaymentKey(userId, orderId));
         }
 
-        eventBus.post(new PaymentCancelledEvent());
+        eventBus.post(new PaymentCancelledEvent(orderId, userId));
     }
 
+    @Subscribe
     @Override
-    public final void doRefund(@NotNull RefundOrderRequestEvent event) throws PaymentAlreadyExistsException {
+    public void handleRefund(@NotNull RefundRequestEvent event) throws PaymentAlreadyExistsException {
         var userId = event.getUserId();
         var orderId = event.getOrderId();
         var amount = event.getAmount();
@@ -153,7 +155,8 @@ public class DefaultPaymentService implements PaymentService {
             /* TODO eventBus: post */
             startTransaction(userId, orderId, operationType.name(), amount);
         } catch (PaymentFailedException e) {
-            eventBus.post(new PaymentFailedEvent(/* TODO add required args*/));
+            /* TODO eventBus: post */
+
         }
     }
 
@@ -239,12 +242,21 @@ public class DefaultPaymentService implements PaymentService {
         PaymentStatusEvent event = null;
         switch (transaction.getStatus()) {
             case SUCCESS:
-                event = new PaymentSuccessfulEvent();
+                event = new PaymentSuccessfulEvent(orderId, userId, FinancialOperationTypeRepository.VALUES.valueOf(opTypeName));
                 status = paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.SUCCESS.name());
+                synchronized (submittedPayments) {
+                    var removed = submittedPayments.remove(new SubmittedPaymentKey(userId, orderId));
+                    assert (removed != null);
+                }
                 break;
             case FAILURE:
-                event = new PaymentFailedEvent();
+                event = new PaymentFailedEvent(orderId, userId, FinancialOperationTypeRepository.VALUES.valueOf(opTypeName));
                 status = paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.FAILED.name());
+                synchronized (submittedPayments) {
+                    var value = submittedPayments.getOrDefault(new SubmittedPaymentKey(userId, orderId), null);
+                    assert (value != null);
+                    value.setNowProcessing(false);
+                }
                 break;
             case PENDING:
                 throw new IllegalStateException("Should not be reached");
@@ -252,11 +264,6 @@ public class DefaultPaymentService implements PaymentService {
 
         var paymentLogRecord = new PaymentLogRecord(amount, completedTime, orderId, transactionId, userId, status, opType);
         paymentLogRecordRepo.save(paymentLogRecord);
-
-        synchronized (submittedPayments) {
-            var removed = submittedPayments.remove(new SubmittedPaymentKey(userId, orderId));
-            assert (removed != null);
-        }
 
         eventBus.post(event);
     }

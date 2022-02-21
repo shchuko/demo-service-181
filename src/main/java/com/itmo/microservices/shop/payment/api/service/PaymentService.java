@@ -1,7 +1,6 @@
 package com.itmo.microservices.shop.payment.api.service;
 
-import com.google.common.eventbus.Subscribe;
-import com.itmo.microservices.shop.payment.api.messaging.RefundOrderRequestEvent;
+import com.itmo.microservices.shop.payment.api.messaging.RefundRequestEvent;
 import com.itmo.microservices.shop.payment.api.model.PaymentSubmissionDto;
 import com.itmo.microservices.shop.payment.impl.exceptions.PaymentAlreadyExistsException;
 import com.itmo.microservices.shop.payment.impl.exceptions.PaymentFailedException;
@@ -11,7 +10,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
-@SuppressWarnings("UnstableApiUsage")
 public interface PaymentService {
     /**
      * Perform a payment. Corresponding payment should be submitted before.
@@ -47,6 +45,5 @@ public interface PaymentService {
      *
      * @param event Refund event to handle.
      */
-    @Subscribe
-    void doRefund(@NotNull RefundOrderRequestEvent event) throws PaymentAlreadyExistsException;
+    void handleRefund(@NotNull RefundRequestEvent event) throws PaymentAlreadyExistsException;
 }

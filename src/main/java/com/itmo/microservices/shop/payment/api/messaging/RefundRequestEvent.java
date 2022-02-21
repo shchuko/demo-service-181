@@ -4,15 +4,15 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
-public class RefundOrderRequestEvent {
+public class RefundRequestEvent {
     private UUID orderId;
     private UUID userId;
     private int amount;
 
-    public RefundOrderRequestEvent() {
+    public RefundRequestEvent() {
     }
 
-    public RefundOrderRequestEvent(@NotNull UUID orderId, @NotNull UUID userId, int amount) {
+    public RefundRequestEvent(@NotNull UUID orderId, @NotNull UUID userId, int amount) {
         this.orderId = orderId;
         this.userId = userId;
         this.amount = amount;
