@@ -20,7 +20,9 @@ import com.itmo.microservices.shop.common.transactions.exception.TransactionProc
 import com.itmo.microservices.shop.common.transactions.exception.TransactionStartException;
 import com.itmo.microservices.shop.common.transactions.functional.TransactionProcessor;
 import com.itmo.microservices.shop.payment.api.messaging.*;
+import com.itmo.microservices.shop.payment.api.model.PaymentLogRecordDto;
 import com.itmo.microservices.shop.payment.api.model.PaymentSubmissionDto;
+import com.itmo.microservices.shop.payment.api.model.UserAccountFinancialLogRecordDto;
 import com.itmo.microservices.shop.payment.api.service.PaymentService;
 import com.itmo.microservices.shop.payment.impl.config.ExternalPaymentServiceCredentials;
 import com.itmo.microservices.shop.payment.impl.entity.PaymentLogRecord;
@@ -28,6 +30,7 @@ import com.itmo.microservices.shop.payment.impl.entity.PaymentStatus;
 import com.itmo.microservices.shop.payment.impl.entity.PaymentTransactionsProcessorWriteback;
 import com.itmo.microservices.shop.payment.impl.exceptions.*;
 import com.itmo.microservices.shop.payment.impl.logging.PaymentServiceNotableEvent;
+import com.itmo.microservices.shop.payment.impl.mapper.Mappers;
 import com.itmo.microservices.shop.payment.impl.repository.FinancialOperationTypeRepository;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentLogRecordRepository;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
@@ -144,6 +147,21 @@ public class DefaultPaymentService implements PaymentService {
         eventBus.post(new PaymentCancelledEvent(orderId, userId, value.operationType.name()));
     }
 
+    @Override
+    public List<UserAccountFinancialLogRecordDto> listUserFinLog(UUID userId) {
+        return paymentLogRecordRepo.findByUserId(userId).stream().map(Mappers::buildFinLogRecordDto).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UserAccountFinancialLogRecordDto> listUserFinLog(UUID userId, UUID orderId) {
+        return paymentLogRecordRepo.findByUserIdAndOrderId(userId, orderId).stream().map(Mappers::buildFinLogRecordDto).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PaymentLogRecordDto> listOrderPaymentLog(UUID userId, UUID orderId) {
+        return paymentLogRecordRepo.findByUserIdAndOrderId(userId, orderId).stream().map(Mappers::buildPaymentLogRecordDto).collect(Collectors.toList());
+    }
+
     @Subscribe
     @Override
     public void handleRefund(@NotNull RefundRequestEvent event) throws PaymentAlreadyExistsException {
@@ -171,7 +189,12 @@ public class DefaultPaymentService implements PaymentService {
         }
     }
 
-    public DefaultPaymentService(PaymentLogRecordRepository paymentLogRecordRepo, FinancialOperationTypeRepository financialOperationTypeRepository, PaymentStatusRepository paymentStatusRepository, ExternalPaymentServiceCredentials externalPaymentServiceCredentials, PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository, EventBus eventBus) {
+    public DefaultPaymentService(PaymentLogRecordRepository paymentLogRecordRepo,
+                                 FinancialOperationTypeRepository financialOperationTypeRepository,
+                                 PaymentStatusRepository paymentStatusRepository,
+                                 ExternalPaymentServiceCredentials externalPaymentServiceCredentials,
+                                 PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository,
+                                 EventBus eventBus) {
         this.paymentLogRecordRepo = paymentLogRecordRepo;
         this.financialOperationTypeRepository = financialOperationTypeRepository;
         this.paymentStatusRepository = paymentStatusRepository;

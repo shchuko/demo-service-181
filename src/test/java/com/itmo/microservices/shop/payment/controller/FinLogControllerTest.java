@@ -4,9 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itmo.microservices.shop.common.test.NoWebSecurityTestCase;
 import com.itmo.microservices.shop.payment.api.controller.FinLogController;
 import com.itmo.microservices.shop.payment.api.model.UserAccountFinancialLogRecordDto;
+import com.itmo.microservices.shop.payment.api.service.PaymentService;
 import com.itmo.microservices.shop.payment.common.HardcodedValues;
 import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInfoNotFoundException;
-import com.itmo.microservices.shop.payment.impl.service.FinLogService;
+import com.itmo.microservices.shop.payment.impl.mapper.Mappers;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -35,7 +36,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
     private FinLogController controller;
 
     @MockBean
-    FinLogService service;
+    PaymentService service;
 
     private final HardcodedValues hardcodedValues = new HardcodedValues();
 
@@ -50,9 +51,9 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
 
         var expected = hardcodedValues.paymentLogRecords.stream()
                 .filter(i -> i.getUserId() == userId && i.getOrderId() == orderId)
-                .map(UserAccountFinancialLogRecordDto::toModel).collect(Collectors.toList());
+                .map(Mappers::buildFinLogRecordDto).collect(Collectors.toList());
 
-        Mockito.when(service.getUserFinanceLog(userId, orderId.toString()))
+        Mockito.when(service.listUserFinLog(userId, orderId))
                 .thenReturn(expected);
 
         this.mockMvc.perform(get("/finlog").param("orderId", orderId.toString()))
@@ -60,7 +61,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
                 .andExpect(status().isOk())
                 .andExpect(content().string(mapper.writeValueAsString(expected)));
 
-        Mockito.verify(service).getUserFinanceLog(Mockito.any(UUID.class), Mockito.any(String.class));
+        Mockito.verify(service).listUserFinLog(Mockito.any(UUID.class), Mockito.any(UUID.class));
         Mockito.verifyNoMoreInteractions(service);
     }
 
@@ -71,9 +72,9 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
 
         var expected = hardcodedValues.paymentLogRecords.stream()
                 .filter(i -> i.getUserId() == userId)
-                .map(UserAccountFinancialLogRecordDto::toModel).collect(Collectors.toList());
+                .map(Mappers::buildFinLogRecordDto).collect(Collectors.toList());
 
-        Mockito.when(service.getUserFinanceLog(userId))
+        Mockito.when(service.listUserFinLog(userId))
                 .thenReturn(expected);
 
         this.mockMvc.perform(get("/finlog"))
@@ -81,7 +82,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
                 .andExpect(status().isOk())
                 .andExpect(content().string(mapper.writeValueAsString(expected)));
 
-        Mockito.verify(service).getUserFinanceLog(Mockito.any(UUID.class));
+        Mockito.verify(service).listUserFinLog(Mockito.any(UUID.class));
         Mockito.verifyNoMoreInteractions(service);
     }
 
@@ -91,7 +92,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
         UUID orderId = UUID.randomUUID();
 
 
-        Mockito.when(service.getUserFinanceLog(Mockito.any(UUID.class), Mockito.any(String.class)))
+        Mockito.when(service.listUserFinLog(Mockito.any(UUID.class), Mockito.any(UUID.class)))
                 .thenThrow(new PaymentInfoNotFoundException("No payment information found."));
 
         this.mockMvc.perform(get("/finlog").param("orderId", orderId.toString()))
@@ -99,7 +100,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("No payment information found."));
 
-        Mockito.verify(service).getUserFinanceLog(Mockito.any(UUID.class), Mockito.any(String.class));
+        Mockito.verify(service).listUserFinLog(Mockito.any(UUID.class), Mockito.any(UUID.class));
         Mockito.verifyNoMoreInteractions(service);
     }
 
@@ -107,7 +108,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
     @Test
     public void whenGetUserFinancialLogWithoutOrderIdReturnPaymentInfoNotFoundException() throws Exception {
 
-        Mockito.when(service.getUserFinanceLog(Mockito.any(UUID.class)))
+        Mockito.when(service.listUserFinLog(Mockito.any(UUID.class)))
                 .thenThrow(new PaymentInfoNotFoundException("No payment information found."));
 
         this.mockMvc.perform(get("/finlog"))
@@ -115,7 +116,7 @@ public class FinLogControllerTest extends NoWebSecurityTestCase {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("No payment information found."));
 
-        Mockito.verify(service).getUserFinanceLog(Mockito.any(UUID.class));
+        Mockito.verify(service).listUserFinLog(Mockito.any(UUID.class));
         Mockito.verifyNoMoreInteractions(service);
     }
 

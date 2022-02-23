@@ -1,6 +1,6 @@
 package com.itmo.microservices.shop.payment.api.controller;
 
-import com.itmo.microservices.shop.payment.impl.service.FinLogService;
+import com.itmo.microservices.shop.payment.api.service.PaymentService;
 import com.itmo.microservices.shop.user.impl.userdetails.UserAuth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -17,26 +17,26 @@ import java.util.UUID;
 @RequestMapping("/finlog")
 public class FinLogController {
 
-    private final FinLogService finLogService;
+    private final PaymentService paymentService;
 
-    public FinLogController(FinLogService service) {
-        finLogService = service;
+    public FinLogController(PaymentService paymentService) {
+        this.paymentService = paymentService;
     }
 
-    // Add userId
     @GetMapping
     @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
-    ResponseEntity<?> getUserFinancialLog(Authentication authentication, @RequestParam(defaultValue = "", required = false) String orderId) {
+    ResponseEntity<?> getUserFinancialLog(Authentication authentication, @RequestParam(defaultValue = "", required = false) UUID orderId) {
         var user = (UserAuth) authentication.getPrincipal();
         UUID userId = user.getUuid();
         try {
-            if (orderId.isEmpty()) {
-                return ResponseEntity.ok(finLogService.getUserFinanceLog(userId));
+            if (orderId == null) {
+                return ResponseEntity.ok(paymentService.listUserFinLog(userId));
             } else {
-                return ResponseEntity.ok(finLogService.getUserFinanceLog(userId, orderId));
+                return ResponseEntity.ok(paymentService.listUserFinLog(userId, orderId));
             }
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.notFound().build();
         }
     }
 }

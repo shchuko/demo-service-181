@@ -1,32 +1,42 @@
 package com.itmo.microservices.shop.payment.api.model;
 
-import com.itmo.microservices.shop.payment.impl.entity.PaymentLogRecord;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.util.UUID;
 
-@Getter
-@Setter
-@EqualsAndHashCode
 public class UserAccountFinancialLogRecordDto {
-    private String FinancialOperationType;
-    private Integer amount;
-    private UUID orderId;
-    private UUID paymentTransactionId;
-    private Long timestamp;
+    private final String FinancialOperationType;
+    private final Integer amount;
+    private final UUID orderId;
+    private final UUID paymentTransactionId;
+    private final Long timestamp;
 
-    public static UserAccountFinancialLogRecordDto toModel(PaymentLogRecord paymentLogRecord) {
-        UserAccountFinancialLogRecordDto model = new UserAccountFinancialLogRecordDto();
-
-        model.setFinancialOperationType(paymentLogRecord.getFinancialOperationType().getName());
-        model.setAmount(paymentLogRecord.getAmount());
-        model.setOrderId(paymentLogRecord.getOrderId());
-        model.setPaymentTransactionId(paymentLogRecord.getTransactionId());
-        model.setTimestamp(paymentLogRecord.getTimestamp());
-
-        return model;
+    public UserAccountFinancialLogRecordDto(String financialOperationType,
+                                            Integer amount, UUID orderId,
+                                            UUID paymentTransactionId,
+                                            Long timestamp) {
+        FinancialOperationType = financialOperationType;
+        this.amount = amount;
+        this.orderId = orderId;
+        this.paymentTransactionId = paymentTransactionId;
+        this.timestamp = timestamp;
     }
 
+    public String getFinancialOperationType() {
+        return FinancialOperationType;
+    }
+
+    public Integer getAmount() {
+        return amount;
+    }
+
+    public UUID getOrderId() {
+        return orderId;
+    }
+
+    public UUID getPaymentTransactionId() {
+        return paymentTransactionId;
+    }
+
+    public Long getTimestamp() {
+        return timestamp;
+    }
 }

@@ -6,6 +6,7 @@ import com.itmo.microservices.shop.payment.api.model.UserAccountFinancialLogReco
 import com.itmo.microservices.shop.payment.impl.entity.FinancialOperationType;
 import com.itmo.microservices.shop.payment.impl.entity.PaymentLogRecord;
 import com.itmo.microservices.shop.payment.impl.entity.PaymentStatus;
+import com.itmo.microservices.shop.payment.impl.mapper.Mappers;
 
 import java.util.Arrays;
 import java.util.List;
@@ -73,13 +74,13 @@ public class HardcodedValues {
     );
 
     public final List<PaymentLogRecordDto> paymentLogRecordDtos = paymentLogRecords.stream()
-            .map(PaymentLogRecordDto::toModel).collect(Collectors.toList());
+            .map(Mappers::buildPaymentLogRecordDto).collect(Collectors.toList());
 
     public final List<PaymentSubmissionDto> paymentSubmissionDtos = paymentLogRecords.stream()
             .map(PaymentSubmissionDto::toModel).collect(Collectors.toList());
 
     public final List<UserAccountFinancialLogRecordDto> userAccountFinancialLogRecordDto = paymentLogRecords.stream()
-            .map(UserAccountFinancialLogRecordDto::toModel).collect(Collectors.toList());
+            .map(Mappers::buildFinLogRecordDto).collect(Collectors.toList());
 
     public final PaymentSubmissionDto paymentSubmissionDto = new PaymentSubmissionDto(1922L,
             UUID.fromString("7d9689b4-9b8e-4ed4-bef7-7fe4d691a658"));
