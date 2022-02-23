@@ -1,6 +1,10 @@
 name: Run Maven tests
 
-on: [ push ]
+on:
+  push:
+    branches:
+      - 'main'
+      - 'stable/**'
 
 jobs:
   build:
@@ -13,5 +17,9 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
+
+      - name: Install common-lib
+        run: sh mvn-install-commonlib.sh
+
       - name: Build with Maven
         run: mvn --batch-mode test
