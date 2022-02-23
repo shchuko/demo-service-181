@@ -17,6 +17,7 @@ import com.itmo.microservices.shop.order.api.exeptions.BadOperationForCurrentOrd
 import com.itmo.microservices.shop.order.api.exeptions.OrderNotFoundException;
 import com.itmo.microservices.shop.order.api.model.BookingDTO;
 import com.itmo.microservices.shop.order.api.model.OrderDTO;
+import com.itmo.microservices.shop.order.api.model.PaymentLogRecord;
 import com.itmo.microservices.shop.order.api.service.IOrderService;
 import com.itmo.microservices.shop.order.impl.entity.OrderItem;
 import com.itmo.microservices.shop.order.impl.entity.OrderItemID;
@@ -39,6 +40,7 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -83,7 +85,8 @@ public class OrderItemService implements IOrderService {
         order.setUserId(userId);
         orderRepository.save(order);
 
-        OrderDTO orderDTO = OrderTableToOrderDTO.toDTO(order);
+        //noinspection unchecked
+        OrderDTO orderDTO = OrderTableToOrderDTO.toDTO(order, Collections.EMPTY_LIST);
         eventBus.post(new OrderCreatedEvent(orderDTO));
         logInfo(OrderServiceNotableEvent.I_ORDER_CREATED, order.getId());
         return orderDTO;
@@ -91,7 +94,11 @@ public class OrderItemService implements IOrderService {
 
     @Override
     public OrderDTO describeOrder(UUID userId, UUID orderId) {
-        return OrderTableToOrderDTO.toDTO(getOrderOrThrow(orderId, userId));
+        return OrderTableToOrderDTO.toDTO(
+                getOrderOrThrow(orderId, userId),
+                paymentService.listOrderPaymentLog(userId, orderId).stream()
+                        .map(PaymentLogRecord::new)
+                        .collect(Collectors.toList()));
     }
 
     @Override

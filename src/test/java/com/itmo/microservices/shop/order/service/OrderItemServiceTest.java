@@ -80,7 +80,8 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
                 Optional.of(order)
         );
 
-        assertEquals(OrderTableToOrderDTO.toDTO(order), orderItemService.describeOrder(values.userUUID, values.orderUUID));
+        //noinspection unchecked
+        assertEquals(OrderTableToOrderDTO.toDTO(order, Collections.EMPTY_LIST), orderItemService.describeOrder(values.userUUID, values.orderUUID));
     }
 
     //    @Disabled("Disables while project refactor is in progress")
@@ -146,7 +147,7 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
         order.setTimeCreated(Instant.now().getEpochSecond());
         order.setStatus(values.collectedStatus);
         order.setUserId(values.userUUID);
-        HashSet<OrderItem> items = new HashSet<OrderItem>();
+        HashSet<OrderItem> items = new HashSet<>();
         order.setOrderItems(items);
         return order;
     }
