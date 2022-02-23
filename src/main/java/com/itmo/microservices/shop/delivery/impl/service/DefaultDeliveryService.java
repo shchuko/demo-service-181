@@ -22,6 +22,7 @@ import com.itmo.microservices.shop.common.transactions.functional.TransactionPro
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusFailedEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusSuccessEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryEvent;
+import com.itmo.microservices.shop.delivery.api.model.DeliveryInfoRecordDto;
 import com.itmo.microservices.shop.delivery.api.service.DeliveryService;
 import com.itmo.microservices.shop.delivery.impl.config.ExternalDeliveryServiceCredentials;
 import com.itmo.microservices.shop.delivery.impl.entity.DeliveryTransactionsProcessorWriteback;
@@ -55,6 +56,9 @@ public class DefaultDeliveryService implements DeliveryService {
     private final TransactionProcessor<TransactionResponseDto, UUID, TransactionContext> pollingTransactionProcessor;
 
     private final DeliveryTransactionsProcessorWritebackRepository writebackRepository;
+
+    /* TODO store data in DB */
+    private final List<DeliveryInfoRecordDto> deliveryLogsStub = new ArrayList<>();
 
     @InjectEventLogger
     private EventLogger eventLogger;
@@ -124,6 +128,11 @@ public class DefaultDeliveryService implements DeliveryService {
         }
     }
 
+    @Override
+    public List<DeliveryInfoRecordDto> getDeliveryLog(UUID orderId) {
+        return deliveryLogsStub.stream().filter(it -> it.getOrderId().equals(orderId)).collect(Collectors.toList());
+    }
+
     @NotNull
     @Override
     public List<Integer> getDeliverySlots(int number) {
@@ -146,12 +155,34 @@ public class DefaultDeliveryService implements DeliveryService {
             case SUCCESS:
                 /* TODO get rid of Long.valueOf().intValue() */
                 int duration = Long.valueOf(transaction.getWrappedObject().getCompletedTime() - transaction.getWrappedObject().getSubmitTime()).intValue();
+
+                /* TODO write to DB */
+                deliveryLogsStub.add(new DeliveryInfoRecordDto(
+                        DeliveryInfoRecordDto.Outcome.SUCCESS,
+                        transaction.getWrappedObject().getSubmitTime(),
+                        1,
+                        transaction.getWrappedObject().getCompletedTime(),
+                        transaction.getId(),
+                        transaction.getWrappedObject().getCompletedTime(),
+                        context.deliveryTransactionsProcessorWriteback.getOrderId()));
+
                 eventBus.post(new DeliveryStatusSuccessEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
                         context.deliveryTransactionsProcessorWriteback.getUserId(),
                         context.deliveryTransactionsProcessorWriteback.getTimeSlot(),
                         duration));
                 break;
             case FAILURE:
+
+                /* TODO write to DB */
+                deliveryLogsStub.add(new DeliveryInfoRecordDto(
+                        DeliveryInfoRecordDto.Outcome.SUCCESS,
+                        transaction.getWrappedObject().getSubmitTime(),
+                        1,
+                        transaction.getWrappedObject().getCompletedTime(),
+                        transaction.getId(),
+                        transaction.getWrappedObject().getCompletedTime(),
+                        context.deliveryTransactionsProcessorWriteback.getOrderId()));
+
                 eventBus.post(new DeliveryStatusFailedEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
                         context.deliveryTransactionsProcessorWriteback.getUserId(),
                         context.deliveryTransactionsProcessorWriteback.getTimeSlot()));
