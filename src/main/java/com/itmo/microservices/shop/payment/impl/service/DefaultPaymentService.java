@@ -160,7 +160,7 @@ public class DefaultPaymentService implements PaymentService {
     @Override
     public List<PaymentLogRecordDto> listOrderPaymentLog(UUID userId, UUID orderId) {
         return paymentLogRecordRepo.findByUserIdAndOrderId(userId, orderId).stream()
-                .filter(it -> it.getFinancialOperationType().getName().equals(FinancialOperationTypeRepository.VALUES.WITHDRAW.name()))
+                .filter(it -> it.getFinancialOperationType().getName().equals(FinancialOperationTypeRepository.VALUES.WITHDRAW.name())) // TODO ensure that this filter is required
                 .map(Mappers::buildPaymentLogRecordDto)
                 .collect(Collectors.toList());
     }
