@@ -9,6 +9,7 @@ import com.itmo.microservices.shop.catalog.api.exceptions.ItemNotFoundException;
 import com.itmo.microservices.shop.catalog.api.model.BookingDescriptionDto;
 import com.itmo.microservices.shop.catalog.api.model.ItemDTO;
 import com.itmo.microservices.shop.catalog.api.service.ItemService;
+import com.itmo.microservices.shop.common.metrics.DemoServiceMetricsCollector;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusFailedEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusSuccessEvent;
@@ -36,6 +37,9 @@ import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInUninterrupti
 import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInfoNotFoundException;
 import com.itmo.microservices.shop.payment.impl.repository.FinancialOperationTypeRepository;
 import com.itmo.microservices.shop.user.api.service.UserService;
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.Counter;
+import io.prometheus.client.Gauge;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
@@ -60,13 +64,15 @@ public class OrderItemService implements IOrderService {
     private final PaymentService paymentService;
     private final EventBus eventBus;
     private final ItemService itemService;
+    private final DemoServiceMetricsCollector metricCollector;
+    private final Counter counter;
 
     public OrderItemService(UserService userService,
                             IOrderItemRepository orderItemRepository,
                             IOrderStatusRepository statusRepository,
                             IOrderTableRepository orderRepository,
                             PaymentService paymentService,
-                            EventBus eventBus, ItemService itemService) {
+                            EventBus eventBus, ItemService itemService, DemoServiceMetricsCollector metricCollector) {
         this.userService = userService;
         this.orderItemRepository = orderItemRepository;
         this.statusRepository = statusRepository;
@@ -74,10 +80,13 @@ public class OrderItemService implements IOrderService {
         this.paymentService = paymentService;
         this.eventBus = eventBus;
         this.itemService = itemService;
+        this.metricCollector = metricCollector;
+        this.counter = this.metricCollector.generateCounter("order_rec", "Total count of creating orders");
     }
 
     @Override
     public OrderDTO createOrder(UUID userId) {
+        counter.inc();
         OrderStatus statusCollecting = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
         OrderTable order = new OrderTable();
         order.setTimeCreated(Instant.now().getEpochSecond());
@@ -89,6 +98,14 @@ public class OrderItemService implements IOrderService {
         OrderDTO orderDTO = OrderTableToOrderDTO.toDTO(order, Collections.EMPTY_LIST);
         eventBus.post(new OrderCreatedEvent(orderDTO));
         logInfo(OrderServiceNotableEvent.I_ORDER_CREATED, order.getId());
+        // metricCollector.passValueToCounter(OrderMetricEvent.ORDER_CREATED, 1);
+        System.out.println(counter.get());
+        var iter = CollectorRegistry.defaultRegistry.metricFamilySamples().asIterator();
+        while (iter.hasNext()) {
+            var a = iter.next();
+            System.out.println(a.name);
+            System.out.println(a.help);
+        }
         return orderDTO;
     }
 

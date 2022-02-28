@@ -46,6 +46,8 @@ logstash:
 
 management:
   metrics:
+    tags:
+      serviceName: ${spring.application.name}
     export:
       prometheus:
         enabled: true
