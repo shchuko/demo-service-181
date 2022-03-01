@@ -80,6 +80,7 @@ public class OrderItemService implements IOrderService {
         this.eventBus = eventBus;
         this.itemService = itemService;
         this.metricCollector = metricCollector;
+        metricCollector.register(OrderMetricEvent.values());
     }
 
     @Override
