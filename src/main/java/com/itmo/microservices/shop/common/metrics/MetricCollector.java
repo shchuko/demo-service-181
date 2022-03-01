@@ -12,11 +12,8 @@ import java.util.*;
 @Component
 public class MetricCollector extends CommonMetricsCollector {
     private final static String SERVICE_NAME_TAG = "serviceName";
+    private final static Double QUANTILE_ERROR = 0.001;
     private final String applicationName;
-
-    // TODO: catch `IllegalArgumentException` || add concurrency logic,
-    //      on first call, if there are several parallel requests, it will try to create already exist `Meter`
-    //      due to non exist key at this time
     private static final Map<String, SimpleCollector<?>> meters = new HashMap<>();
     private final PrometheusMeterRegistry registry;
 
@@ -69,7 +66,8 @@ public class MetricCollector extends CommonMetricsCollector {
                 counter.labels(tags).inc(value);
                 break;
             case SUMMARY:
-                // TODO: implement summary.record()
+                Summary summary = (Summary) this.getCollector(event);
+                summary.labels(tags).observe(value);
                 break;
             default:
                 throw new IllegalStateException("No logic for this metric type: " + event.getMetricType());
@@ -109,14 +107,16 @@ public class MetricCollector extends CommonMetricsCollector {
                 .register(this.registry.getPrometheusRegistry());
     }
 
-    // TODO: add quantiles
     private Summary generateSummary(MetricEvent event) {
-        return Summary
+        Summary.Builder summaryBuilder = Summary
                 .build()
                 .name(event.getName())
                 .help(event.getDescription())
-                .labelNames(appendServiceNameLabel(event.getTags()))
-                .register(this.registry.getPrometheusRegistry());
+                .labelNames(appendServiceNameLabel(event.getTags()));
+        for (Double quantile: event.getQuantiles()) {
+            summaryBuilder = summaryBuilder.quantile(quantile, QUANTILE_ERROR);
+        }
+        return summaryBuilder.register(this.registry.getPrometheusRegistry());
     }
 
     private SimpleCollector<?> getCollector(MetricEvent event) {
