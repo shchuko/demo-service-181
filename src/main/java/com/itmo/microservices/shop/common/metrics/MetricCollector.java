@@ -4,7 +4,6 @@ import com.itmo.microservices.commonlib.metrics.CommonMetricsCollector;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.prometheus.client.*;
-import org.apache.commons.lang3.NotImplementedException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,17 +11,18 @@ import java.util.*;
 
 @Component
 public class MetricCollector extends CommonMetricsCollector {
-    private String applicationName;
+    private final static String SERVICE_NAME_TAG = "serviceName";
+    private final String applicationName;
 
     // TODO: catch `IllegalArgumentException` || add concurrency logic,
     //      on first call, if there are several parallel requests, it will try to create already exist `Meter`
     //      due to non exist key at this time
-    private static Map<String, SimpleCollector> meters = new HashMap<>();
+    private static final Map<String, SimpleCollector<?>> meters = new HashMap<>();
     private final PrometheusMeterRegistry registry;
 
     public MetricCollector(
             PrometheusMeterRegistry registry,
-            @Value("${spring.application.name}")String applicationName
+            @Value("${spring.application.name}") String applicationName
     ) {
         super(applicationName);
         this.applicationName = applicationName;
@@ -50,41 +50,44 @@ public class MetricCollector extends CommonMetricsCollector {
         registry.config().commonTags(tags);
     }
 */
-    public void passEvent(MetricEvent event, double value, String... tags) {
-        boolean isInc = this.validateValue(value, event.getMetricType());
-        switch (event.getMetricType()){
+
+
+    public void passEvent(MetricEvent event, double value, String... tagsRaw) {
+        this.validateOrThrow(value, event.getMetricType());
+        var tags = appendServiceNameTag(tagsRaw);
+        switch (event.getMetricType()) {
             case GAUGE:
-                Gauge gauge = (Gauge) this.getOrCreateCollector(event);
-                if (isInc) {
+                Gauge gauge = (Gauge) this.getCollector(event);
+                if (value < 0) {
                     gauge.labels(tags).inc(value);
                 } else {
-                    gauge.labels(tags).dec(value);
+                    gauge.labels(tags).dec(-value);
                 }
                 break;
             case COUNTER:
-                Counter counter = (Counter) this.getOrCreateCollector(event);
+                Counter counter = (Counter) this.getCollector(event);
                 counter.labels(tags).inc(value);
                 break;
             case SUMMARY:
                 // TODO: implement summary.record()
                 break;
             default:
-                throw new NotImplementedException("No logic for this metric type: " + event.getMetricType());
+                throw new IllegalStateException("No logic for this metric type: " + event.getMetricType());
         }
     }
 
-    private boolean validateValue(double value, MetricType metricType) {
-        switch (metricType){
-            case GAUGE:
-                return (value >= 0);
+    private void validateOrThrow(double value, MetricType metricType) {
+        switch (metricType) {
             case COUNTER:
             case SUMMARY:
                 if (value < 0) {
                     throw new IllegalArgumentException("Value must be positive");
                 }
-                return true;
+                break;
+            case GAUGE:
+                break;
             default:
-                throw new NotImplementedException("No logic for this metric type: " + metricType);
+                throw new IllegalStateException("No logic for this metric type: " + metricType);
         }
     }
 
@@ -93,7 +96,7 @@ public class MetricCollector extends CommonMetricsCollector {
                 .build()
                 .name(event.getName())
                 .help(event.getDescription())
-                .labelNames(event.getTags())
+                .labelNames(appendServiceNameLabel(event.getTags()))
                 .register(this.registry.getPrometheusRegistry());
     }
 
@@ -102,7 +105,7 @@ public class MetricCollector extends CommonMetricsCollector {
                 .build()
                 .name(event.getName())
                 .help(event.getDescription())
-                .labelNames(event.getTags())
+                .labelNames(appendServiceNameLabel(event.getTags()))
                 .register(this.registry.getPrometheusRegistry());
     }
 
@@ -112,13 +115,17 @@ public class MetricCollector extends CommonMetricsCollector {
                 .build()
                 .name(event.getName())
                 .help(event.getDescription())
-                .labelNames(event.getTags())
+                .labelNames(appendServiceNameLabel(event.getTags()))
                 .register(this.registry.getPrometheusRegistry());
     }
 
-    private SimpleCollector getOrCreateCollector(MetricEvent event) {
-        SimpleCollector collector = meters.getOrDefault(event.getName(), null);
-        if (collector == null) {
+    private SimpleCollector<?> getCollector(MetricEvent event) {
+        return meters.get(event.getName());
+    }
+
+    public void register(MetricEvent... events) {
+        for (var event : events) {
+            SimpleCollector<?> collector;
             switch (event.getMetricType()) {
                 case SUMMARY:
                     collector = this.generateSummary(event);
@@ -130,10 +137,23 @@ public class MetricCollector extends CommonMetricsCollector {
                     collector = this.generateGauge(event);
                     break;
                 default:
-                    throw new NotImplementedException("No logic for this metric type: " + event.getMetricType());
+                    throw new IllegalStateException("No logic for this metric type: " + event.getMetricType());
             }
             meters.put(event.getName(), collector);
         }
-        return collector;
+    }
+
+    /* TODO remove this kostyl */
+    private String[] appendServiceNameTag(String[] tags) {
+        var list = new ArrayList<>(Arrays.asList(tags));
+        list.add(applicationName);
+        return list.toArray(new String[0]);
+    }
+
+    /* TODO remove this kostyl */
+    private String[] appendServiceNameLabel(String[] tags) {
+        var list = new ArrayList<>(Arrays.asList(tags));
+        list.add(SERVICE_NAME_TAG);
+        return list.toArray(new String[0]);
     }
 }
