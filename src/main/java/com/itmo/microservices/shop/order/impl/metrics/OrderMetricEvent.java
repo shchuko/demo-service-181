@@ -3,20 +3,24 @@ package com.itmo.microservices.shop.order.impl.metrics;
 import com.itmo.microservices.shop.common.metrics.MetricEvent;
 import com.itmo.microservices.shop.common.metrics.MetricType;
 
+import java.util.Collections;
+import java.util.List;
+
 
 public enum OrderMetricEvent implements MetricEvent {
     // counters
-
     ORDER_CREATED(
             "order_created",
             "Count of requests to create new order",
-            MetricType.COUNTER
+            MetricType.COUNTER,
+            Collections.emptyList()
     ),
-    ITEM_ADDED("item_added", "Count of items added to order", MetricType.COUNTER),
+    ITEM_ADDED("item_added", "Count of items added to order", MetricType.COUNTER, null),
     ORDER_STATUS_CHANGED(
             "order_status_changed",
             "Total count of all order`s status changes",
             MetricType.COUNTER,
+            Collections.emptyList(),
             "fromState", "toState"
     ),
 
@@ -25,7 +29,16 @@ public enum OrderMetricEvent implements MetricEvent {
             "orders_in_status",
             "Current order count with certain class",
             MetricType.GAUGE,
+            Collections.emptyList(),
             "status"
+    ),
+
+    // summary
+    FINALIZATION_DURATION(
+            "finalization_duration",
+            "Duration of finalizing order",
+            MetricType.SUMMARY,
+            List.of(0.9)
     );
 
 
@@ -33,12 +46,14 @@ public enum OrderMetricEvent implements MetricEvent {
     private final String description;
     private final String[] tagsNames;
     private final MetricType metricType;
+    private final List<Double> quantiles;
 
-    OrderMetricEvent(String name, String description, MetricType metricType, String... tagsNames) {
+    OrderMetricEvent(String name, String description, MetricType metricType, List<Double> quantiles, String... tagsNames) {
         this.name = name;
         this.description = description;
         this.tagsNames = tagsNames;
         this.metricType = metricType;
+        this.quantiles = quantiles;
     }
 
     @Override
@@ -59,5 +74,10 @@ public enum OrderMetricEvent implements MetricEvent {
     @Override
     public String[] getTags() {
         return this.tagsNames;
+    }
+
+    @Override
+    public List<Double> getQuantiles() {
+        return quantiles;
     }
 }

@@ -193,6 +193,7 @@ public class OrderItemService implements IOrderService {
 
     @Override
     public BookingDTO finalizeOrder(UUID userId, UUID orderId) {
+        long start = System.currentTimeMillis();
         /* COLLECTING -> BOOKED */
         OrderTable order = getOrderOrThrow(orderId, userId);
         var collectingStatus = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
@@ -239,6 +240,9 @@ public class OrderItemService implements IOrderService {
             logError(OrderServiceNotableEvent.E_ORDER_SUBMIT_PAYMENT, orderId);
             throw new RuntimeException("Should not be reached", e);
         }
+        metricCollector.passEvent(
+                OrderMetricEvent.FINALIZATION_DURATION,
+                (double) ((System.currentTimeMillis() - start) / 1000));
         return new BookingDTO(bookingResult.getBookingId(), bookingResult.getFailedItems().keySet());
     }
 
