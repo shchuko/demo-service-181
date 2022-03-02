@@ -50,7 +50,10 @@ import java.util.stream.Collectors;
 @Service
 @SuppressWarnings("UnstableApiUsage")
 public class OrderItemService implements IOrderService {
+    // TODO: add private method for changing order status and (logging + metrics)
     private static final long BOOKING_TIMEOUT_MILLIS = 1000 * 60 * 5; // 5 minutes to pay for the order
+    private static final String SUCCESSFUL_FINALIZATION = "SUCCESS";
+    private static final String FAILED_FINALIZATION = "FAILED";
 
     private final UserService userService;
     private final IOrderItemRepository orderItemRepository;
@@ -140,6 +143,22 @@ public class OrderItemService implements IOrderService {
                 itemService.cancelBooking(order.getLastBookingId());
                 orderRepository.save(order);
                 logInfo(OrderServiceNotableEvent.I_ORDER_UNBOOKED, orderId);
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_STATUS_CHANGED,
+                        1,
+                        IOrderStatusRepository.StatusNames.BOOKED.name(),
+                        IOrderStatusRepository.StatusNames.COLLECTING.name()
+                        );
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_IN_STATUS,
+                        1,
+                        IOrderStatusRepository.StatusNames.COLLECTING.name()
+                );
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_IN_STATUS,
+                        -1,
+                        IOrderStatusRepository.StatusNames.BOOKED.name()
+                );
                 break;
 
             default:
@@ -165,11 +184,16 @@ public class OrderItemService implements IOrderService {
 
         orderItemRepository.save(orderItem);
         logInfo(OrderServiceNotableEvent.I_ITEM_ADDED, "order=" + orderId + " itemId=" + itemId);
+        metricCollector.passEvent(OrderMetricEvent.ITEM_ADDED, 1);
     }
 
     @Override
     public BookingDTO setTimeSlot(UUID userId, UUID orderId, int time) {
         /* BOOKED -> BOOKED */
+        metricCollector.passEvent(
+                OrderMetricEvent.TIMESLOT_SET_REQUEST_COUNT,
+                1
+        );
         var order = getOrderOrThrow(orderId, userId);
 
         var status = IOrderStatusRepository.StatusNames.valueOf(order.getStatus().getName());
@@ -193,14 +217,23 @@ public class OrderItemService implements IOrderService {
 
     @Override
     public BookingDTO finalizeOrder(UUID userId, UUID orderId) {
-        long start = System.currentTimeMillis();
         /* COLLECTING -> BOOKED */
+        metricCollector.passEvent(
+                OrderMetricEvent.ADD_TO_FINALIZED_ORDER_REQUEST,
+                1
+        );
+        long start = System.currentTimeMillis();
         OrderTable order = getOrderOrThrow(orderId, userId);
         var collectingStatus = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
 
         if (!order.getStatus().equals(collectingStatus)) {
             var status = IOrderStatusRepository.StatusNames.valueOf(order.getStatus().getName());
             logError(OrderServiceNotableEvent.E_CONFLICT, "'FinalizeOrder' allowed only for 'COLLECTING', got order=" + orderId + " status=" + status);
+            metricCollector.passEvent(
+                    OrderMetricEvent.FINALIZATION_ATTEMPT,
+                    1,
+                    FAILED_FINALIZATION
+            );
             throw new BadOperationForCurrentOrderStatus("'FinalizeOrder' allowed only for 'COLLECTING' order", orderId, status);
         }
 
@@ -212,6 +245,11 @@ public class OrderItemService implements IOrderService {
             bookingResult = itemService.book(items);
         } catch (ItemNotFoundException e) {
             logError(OrderServiceNotableEvent.E_ITEM_NOT_FOUND, e.getMessage());
+            metricCollector.passEvent(
+                    OrderMetricEvent.FINALIZATION_ATTEMPT,
+                    1,
+                    FAILED_FINALIZATION
+            );
             throw e;
         }
         order.setStatus(statusBooked);
@@ -228,7 +266,12 @@ public class OrderItemService implements IOrderService {
                 1,
                 IOrderStatusRepository.StatusNames.BOOKED.name()
         );
-
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_STATUS_CHANGED,
+                1,
+                IOrderStatusRepository.StatusNames.COLLECTING.name(),
+                IOrderStatusRepository.StatusNames.BOOKED.name()
+        );
         logInfo(OrderServiceNotableEvent.I_ORDER_FINALIZED, orderId);
 
         try {
@@ -238,11 +281,21 @@ public class OrderItemService implements IOrderService {
             logInfo(OrderServiceNotableEvent.I_ORDER_SUBMIT_PAYMENT, orderId);
         } catch (PaymentAlreadyExistsException e) {
             logError(OrderServiceNotableEvent.E_ORDER_SUBMIT_PAYMENT, orderId);
+            metricCollector.passEvent(
+                    OrderMetricEvent.FINALIZATION_ATTEMPT,
+                    1,
+                    FAILED_FINALIZATION
+            );
             throw new RuntimeException("Should not be reached", e);
         }
         metricCollector.passEvent(
                 OrderMetricEvent.FINALIZATION_DURATION,
-                (double) ((System.currentTimeMillis() - start) / 1000));
+                (double) (System.currentTimeMillis() - start));
+        metricCollector.passEvent(
+                OrderMetricEvent.FINALIZATION_ATTEMPT,
+                1,
+                SUCCESSFUL_FINALIZATION
+        );
         return new BookingDTO(bookingResult.getBookingId(), bookingResult.getFailedItems().keySet());
     }
 
@@ -257,11 +310,43 @@ public class OrderItemService implements IOrderService {
             case REFUND:
 //                TODO uncomment, now we calling onRefundComplete triggerRefund
 //                onRefundComplete(order);
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_STATUS_CHANGED,
+                        1,
+                        IOrderStatusRepository.StatusNames.PAID.name(),
+                        IOrderStatusRepository.StatusNames.REFUND.name()
+                );
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_IN_STATUS,
+                        1,
+                        IOrderStatusRepository.StatusNames.REFUND.name()
+                );
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_IN_STATUS,
+                        -1,
+                        IOrderStatusRepository.StatusNames.PAID.name()
+                );
                 break;
             case WITHDRAW:
                 OrderStatus statusPaid = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.PAID.name());
                 order.setStatus(statusPaid);
                 orderRepository.save(order);
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_STATUS_CHANGED,
+                        1,
+                        IOrderStatusRepository.StatusNames.BOOKED.name(),
+                        IOrderStatusRepository.StatusNames.PAID.name()
+                );
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_IN_STATUS,
+                        1,
+                        IOrderStatusRepository.StatusNames.PAID.name()
+                );
+                metricCollector.passEvent(
+                        OrderMetricEvent.ORDER_IN_STATUS,
+                        -1,
+                        IOrderStatusRepository.StatusNames.BOOKED.name()
+                );
                 itemService.completeBooking(order.getLastBookingId());
                 logInfo(OrderServiceNotableEvent.I_ORDER_SUCCESSFUL_PAYMENT, order.getId());
                 if (order.getDeliveryDuration() == null) {
@@ -307,6 +392,22 @@ public class OrderItemService implements IOrderService {
         OrderStatus statusCollecting = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
         order.setStatus(statusCollecting);
         orderRepository.save(order);
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_STATUS_CHANGED,
+                1,
+                IOrderStatusRepository.StatusNames.BOOKED.name(),
+                IOrderStatusRepository.StatusNames.COLLECTING.name()
+        );
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_IN_STATUS,
+                1,
+                IOrderStatusRepository.StatusNames.COLLECTING.name()
+        );
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_IN_STATUS,
+                -1,
+                IOrderStatusRepository.StatusNames.BOOKED.name()
+        );
         logInfo(OrderServiceNotableEvent.I_ORDER_CANCELLED_PAYMENT, order.getId());
     }
 
@@ -320,6 +421,22 @@ public class OrderItemService implements IOrderService {
 //        order.setDeliveryDuration(event.getDeliveryDuration());
         orderRepository.save(order);
         logInfo(OrderServiceNotableEvent.I_ORDER_SUCCESSFUL_DELIVERY, event.getOrderId());
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_STATUS_CHANGED,
+                1,
+                IOrderStatusRepository.StatusNames.PAID.name(),
+                IOrderStatusRepository.StatusNames.COMPLETED.name()
+        );
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_IN_STATUS,
+                1,
+                IOrderStatusRepository.StatusNames.COMPLETED.name()
+        );
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_IN_STATUS,
+                -1,
+                IOrderStatusRepository.StatusNames.PAID.name()
+        );
     }
 
     @Subscribe
@@ -342,11 +459,28 @@ public class OrderItemService implements IOrderService {
 
     private void onRefundComplete(OrderTable order) {
         /* <ANY> -> REFUND */
+        OrderStatus currentStatus = order.getStatus();
         itemService.processRefund(order.getLastBookingId());
         OrderStatus statusRefund = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.REFUND.name());
         order.setStatus(statusRefund);
         orderRepository.save(order);
         logInfo(OrderServiceNotableEvent.I_REFUND_DONE, order.getId());
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_STATUS_CHANGED,
+                1,
+                currentStatus.getName(),
+                IOrderStatusRepository.StatusNames.REFUND.name()
+        );
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_IN_STATUS,
+                1,
+                IOrderStatusRepository.StatusNames.REFUND.name()
+        );
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_IN_STATUS,
+                -1,
+                currentStatus.getName()
+        );
     }
 
     private OrderTable deliveryEventCommonPreHandler(DeliveryStatusEvent event) {
