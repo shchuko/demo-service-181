@@ -15,13 +15,44 @@ public enum OrderMetricEvent implements MetricEvent {
             MetricType.COUNTER,
             Collections.emptyList()
     ),
-    ITEM_ADDED("item_added", "Count of items added to order", MetricType.COUNTER, null),
+    ITEM_ADDED(
+            "item_added",
+            "Count of items added to order",
+            MetricType.COUNTER,
+            Collections.emptyList()
+    ),
     ORDER_STATUS_CHANGED(
             "order_status_changed",
             "Total count of all order`s status changes",
             MetricType.COUNTER,
             Collections.emptyList(),
             "fromState", "toState"
+    ),
+    FINALIZATION_ATTEMPT(
+            "finalization_attempt",
+            "Count of requests to finalize order with request status",
+            MetricType.COUNTER,
+            Collections.emptyList(),
+            "result"
+    ),
+    TIMESLOT_SET_REQUEST_COUNT(
+            "timeslot_set_request_count",
+            "Count of requests to set time slot",
+            MetricType.COUNTER,
+            Collections.emptyList()
+    ),
+    ADD_TO_FINALIZED_ORDER_REQUEST(
+            "add_to_finalized_order_request",
+            "Count of requests to add items to already finalized order",
+            MetricType.COUNTER,
+            Collections.emptyList()
+    ),
+    // TODO: discarded_orders
+    DISCARDED_ORDERS(
+            "discarded_orders",
+            "Count of discarded order",
+            MetricType.COUNTER,
+            Collections.emptyList()
     ),
 
     // gauges
@@ -31,6 +62,13 @@ public enum OrderMetricEvent implements MetricEvent {
             MetricType.GAUGE,
             Collections.emptyList(),
             "status"
+    ),
+    // TODO: current_abandoned_order_num
+    CURRENT_ABANDONED_ORDER_NUM(
+            "current_abandoned_order_num",
+            "Current number of abandoned order",
+            MetricType.GAUGE,
+            Collections.emptyList()
     ),
 
     // summary
