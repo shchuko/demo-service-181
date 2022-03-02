@@ -14,13 +14,6 @@ public enum DeliveryMetricEvent implements MetricEvent {
             MetricType.COUNTER,
             Collections.emptyList()
     ),
-    // TODO
-    TIMESLOT_SET_REQUEST_COUNT(
-            "timeslot_set_request_count",
-            "Delivery time set (timeslot selected) - number of requests",
-            MetricType.COUNTER,
-            Collections.emptyList()
-    ),
 
     // gauges
     CURRENT_SHIPPING_ORDERS(
