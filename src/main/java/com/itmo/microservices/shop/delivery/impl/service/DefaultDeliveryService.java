@@ -12,6 +12,7 @@ import com.itmo.microservices.shop.common.executors.timeout.TimeoutProvider;
 import com.itmo.microservices.shop.common.externalservice.ExternalServiceClient;
 import com.itmo.microservices.shop.common.externalservice.api.TransactionResponseDto;
 import com.itmo.microservices.shop.common.limiters.RateLimiter;
+import com.itmo.microservices.shop.common.metrics.MetricCollector;
 import com.itmo.microservices.shop.common.transactions.TransactionPollingProcessor;
 import com.itmo.microservices.shop.common.transactions.TransactionSyncProcessor;
 import com.itmo.microservices.shop.common.transactions.TransactionWrapper;
@@ -26,6 +27,7 @@ import com.itmo.microservices.shop.delivery.api.model.DeliveryInfoRecordDto;
 import com.itmo.microservices.shop.delivery.api.service.DeliveryService;
 import com.itmo.microservices.shop.delivery.impl.config.ExternalDeliveryServiceCredentials;
 import com.itmo.microservices.shop.delivery.impl.entity.DeliveryTransactionsProcessorWriteback;
+import com.itmo.microservices.shop.delivery.impl.metrics.DeliveryMetricEvent;
 import com.itmo.microservices.shop.delivery.impl.repository.DeliveryTransactionsProcessorWritebackRepository;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -64,11 +66,15 @@ public class DefaultDeliveryService implements DeliveryService {
     private EventLogger eventLogger;
     private final EventBus eventBus;
 
+    private final MetricCollector metricCollector;
+
     public DefaultDeliveryService(DeliveryTransactionsProcessorWritebackRepository writebackRepository,
                                   ExternalDeliveryServiceCredentials externalDeliveryServiceCredentials,
-                                  EventBus eventBus) {
+                                  EventBus eventBus, MetricCollector metricCollector) {
         this.writebackRepository = writebackRepository;
         this.eventBus = eventBus;
+        this.metricCollector = metricCollector;
+        metricCollector.register(DeliveryMetricEvent.values());
 
         pollingClient = new ExternalServiceClient(externalDeliveryServiceCredentials.getUrl(), externalDeliveryServiceCredentials.getPollingSecret());
         syncClient = new ExternalServiceClient(externalDeliveryServiceCredentials.getUrl(), externalDeliveryServiceCredentials.getSyncSecret());
@@ -83,13 +89,21 @@ public class DefaultDeliveryService implements DeliveryService {
                 .withTransactionStartLimiter(new RateLimiter(externalDeliveryServiceCredentials.getRateLimit(), TimeUnit.MINUTES))
                 .withTransactionStarter((Object... ignored) -> {
                     try {
-                        return pollingClient.post().toTransactionWrapper();
+                        var transactionWrapper = pollingClient.post().toTransactionWrapper();
+                        metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_EXECUTOR_ACTIVE_TASKS, 1, "deliveryPolling");
+                        return transactionWrapper;
                     } catch (HttpServerErrorException | HttpClientErrorException e) {
                         throw new TransactionStartException(e);
                     }
                 })
                 .withTransactionUpdater((UUID transactionId) -> pollingClient.get(transactionId).toTransactionWrapper())
-                .withTransactionFinishHandler(this::transactionCompletionProcessor)
+                .withTransactionFinishHandler((transaction, context) -> {
+                    metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_EXECUTOR_ACTIVE_TASKS, -1, "deliveryPolling");
+                    transactionCompletionProcessor(transaction, context);
+                })
+                .withExceptionHandler(HttpServerErrorException.InternalServerError.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "500", "false", "false"))
+                .withExceptionHandler(HttpClientErrorException.TooManyRequests.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "429", "false", "false"))
+                .withExceptionHandler(HttpClientErrorException.Unauthorized.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "401", "false", "false"))
                 // External service issue, just retry on 404 until SUCCESS received
                 // See https://t.me/c/1436658303/1445
                 .withIgnoringExceptionHandler(HttpClientErrorException.NotFound.class)
@@ -107,20 +121,28 @@ public class DefaultDeliveryService implements DeliveryService {
 
         TransactionContext context = new TransactionContext(entry);
         TransactionWrapper<TransactionResponseDto, UUID> transactionWrapper = null;
+
+        metricCollector.passEvent(DeliveryMetricEvent.SHIPPING_ORDERS_TOTAL, 1);
         try {
+            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, 1);
             transactionWrapper = pollingTransactionProcessor.startTransaction(context);
+            metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1);
         } catch (TransactionProcessingException ignored) {
             // TODO collect metrics here
+            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
         }
 
         if (transactionWrapper == null) {
             try {
+                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, 1);
+
                 transactionWrapper = syncTransactionProcessor.startTransaction(context);
             } catch (TransactionProcessingException e) {
                 // TODO collect metrics here
                 eventBus.post(new DeliveryStatusFailedEvent(entry.getOrderId(),
                         entry.getUserId(),
                         entry.getTimeSlot()));
+                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
             }
             if (transactionWrapper != null) {
                 transactionCompletionProcessor(transactionWrapper, context);
@@ -170,6 +192,10 @@ public class DefaultDeliveryService implements DeliveryService {
                         context.deliveryTransactionsProcessorWriteback.getUserId(),
                         context.deliveryTransactionsProcessorWriteback.getTimeSlot(),
                         duration));
+                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+
+                // TODO
+                metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
                 break;
             case FAILURE:
 
@@ -186,6 +212,10 @@ public class DefaultDeliveryService implements DeliveryService {
                 eventBus.post(new DeliveryStatusFailedEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
                         context.deliveryTransactionsProcessorWriteback.getUserId(),
                         context.deliveryTransactionsProcessorWriteback.getTimeSlot()));
+                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+
+                // TODO
+                metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
                 break;
         }
     }
