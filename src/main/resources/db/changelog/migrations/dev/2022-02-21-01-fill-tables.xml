@@ -50,6 +50,7 @@
             <column name="user_id" value="4fed9131-6e4b-4542-afc0-36eaa275a023"/>
             <column name="status_id" value="1"/>
             <column name="time_created" value="42"/>
+            <column name="time_modified" value="42"/>
         </insert>
 
     </changeSet>

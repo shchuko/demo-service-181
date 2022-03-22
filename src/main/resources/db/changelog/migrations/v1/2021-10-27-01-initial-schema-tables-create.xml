@@ -32,6 +32,9 @@
       <column name="time_created" type="bigint">
         <constraints nullable="false"/>
       </column>
+      <column name="time_modified" type="bigint">
+        <constraints nullable="false"/>
+      </column>
       <column name="delivery_duration" type="int">
         <constraints nullable="true"/>
       </column>

@@ -42,23 +42,30 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
 @SuppressWarnings("UnstableApiUsage")
 public class OrderItemService implements IOrderService {
     // TODO: add private method for changing order status and (logging + metrics)
+
+    private static final long DISCARD_TIMEOUT_SECONDS = 60 * 60; // 60 minutes to collect
     private static final long BOOKING_TIMEOUT_MILLIS = 1000 * 60 * 5; // 5 minutes to pay for the order
+
+    private static final int ITEM_EXECUTOR_POOL_SIZE = 5;
     private static final String SUCCESSFUL_FINALIZATION = "SUCCESS";
     private static final String FAILED_FINALIZATION = "FAILED";
+    private final ScheduledThreadPoolExecutor itemDiscardProcessingExecutor = new ScheduledThreadPoolExecutor(ITEM_EXECUTOR_POOL_SIZE);
+
 
     private final UserService userService;
     private final IOrderItemRepository orderItemRepository;
     private final IOrderStatusRepository statusRepository;
     private final IOrderTableRepository orderRepository;
+
 
     @InjectEventLogger
     private EventLogger eventLogger;
@@ -84,6 +91,15 @@ public class OrderItemService implements IOrderService {
         this.itemService = itemService;
         this.metricCollector = metricCollector;
         metricCollector.register(OrderMetricEvent.values());
+        itemDiscardProcessingExecutor.scheduleAtFixedRate(() -> {
+            for (OrderTable order : orderRepository.findAllByTimeModifiedLessThan(Instant.now().getEpochSecond() - DISCARD_TIMEOUT_SECONDS)) {
+                if (order.getStatus().getName().equals(IOrderStatusRepository.StatusNames.COLLECTING.name())) {
+                    order.setStatus(statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.DISCARD.name()));
+                    orderRepository.save(order);
+                    metricCollector.passEvent(OrderMetricEvent.DISCARDED_ORDERS, 1, IOrderStatusRepository.StatusNames.DISCARD.name());
+                }
+            }
+        }, 0, 5, TimeUnit.SECONDS);
     }
 
     @Override
@@ -91,6 +107,7 @@ public class OrderItemService implements IOrderService {
         OrderStatus statusCollecting = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
         OrderTable order = new OrderTable();
         order.setTimeCreated(Instant.now().getEpochSecond());
+        order.setTimeModified(order.getTimeCreated());
         order.setStatus(statusCollecting);
         order.setUserId(userId);
         orderRepository.save(order);

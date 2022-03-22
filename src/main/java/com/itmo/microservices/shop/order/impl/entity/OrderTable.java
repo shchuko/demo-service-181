@@ -20,6 +20,7 @@ public class OrderTable {
   @GeneratedValue
   private UUID id;
   private Long timeCreated;
+  private Long timeModified;
   private Integer deliveryDuration;
   private Integer deliverySlot;
   private UUID userId;

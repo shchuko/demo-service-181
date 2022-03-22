@@ -19,7 +19,6 @@ public class OrderTableToOrderDTO {
             orderDTO.setDeliveryDuration(orderTable.getDeliveryDuration());
         }
         orderDTO.setTimeCreated(orderTable.getTimeCreated());
-
         HashMap<UUID, Integer> orderItems = new HashMap<>();
         if (orderTable.getOrderItems() != null) {
             for (OrderItem item : orderTable.getOrderItems()) {

@@ -64,6 +64,7 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
             order.setUserId(values.userUUID);
             order.setId(values.orderUUID);
             order.setTimeCreated(Instant.now().getEpochSecond());
+            order.setTimeModified(order.getTimeCreated());
             order.setStatus(values.collectedStatus);
             assertEquals(values.userUUID, order.getUserId());
             assertEquals(values.orderUUID, order.getId());
@@ -130,6 +131,7 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
                     savedOrder.setUserId(values.userUUID);
                     savedOrder.setId(values.orderUUID);
                     savedOrder.setTimeCreated(Instant.now().getEpochSecond());
+                    savedOrder.setTimeModified(savedOrder.getTimeCreated());
                     savedOrder.setStatus(values.collectedStatus);
                     savedOrder.setDeliveryDuration(values.slot);
                     assertEquals(values.userUUID, savedOrder.getUserId());
@@ -145,6 +147,7 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
         OrderTable order = new OrderTable();
         order.setId(values.orderUUID);
         order.setTimeCreated(Instant.now().getEpochSecond());
+        order.setTimeModified(order.getTimeCreated());
         order.setStatus(values.collectedStatus);
         order.setUserId(values.userUUID);
         HashSet<OrderItem> items = new HashSet<>();
@@ -170,6 +173,7 @@ class OrderItemServiceTest extends DefaultSecurityTestCase {
                     savedOrder.setUserId(values.userUUID);
                     savedOrder.setId(values.orderUUID);
                     savedOrder.setTimeCreated(Instant.now().getEpochSecond());
+                    savedOrder.setTimeModified(savedOrder.getTimeCreated());
                     savedOrder.setStatus(values.bookedStatus);
                     savedOrder.setDeliveryDuration(values.slot);
                     assertEquals(values.userUUID, savedOrder.getUserId());
