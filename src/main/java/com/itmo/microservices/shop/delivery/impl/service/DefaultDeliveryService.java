@@ -23,11 +23,13 @@ import com.itmo.microservices.shop.common.transactions.functional.TransactionPro
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusFailedEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusSuccessEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryEvent;
+import com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryInfo;
 import com.itmo.microservices.shop.delivery.api.model.DeliveryInfoRecordDto;
 import com.itmo.microservices.shop.delivery.api.service.DeliveryService;
 import com.itmo.microservices.shop.delivery.impl.config.ExternalDeliveryServiceCredentials;
 import com.itmo.microservices.shop.delivery.impl.entity.DeliveryTransactionsProcessorWriteback;
 import com.itmo.microservices.shop.delivery.impl.metrics.DeliveryMetricEvent;
+import com.itmo.microservices.shop.delivery.impl.repository.DeliveryInfoRecordRepository;
 import com.itmo.microservices.shop.delivery.impl.repository.DeliveryTransactionsProcessorWritebackRepository;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -58,9 +60,10 @@ public class DefaultDeliveryService implements DeliveryService {
     private final TransactionProcessor<TransactionResponseDto, UUID, TransactionContext> pollingTransactionProcessor;
 
     private final DeliveryTransactionsProcessorWritebackRepository writebackRepository;
+    private final DeliveryInfoRecordRepository deliveryInfoRecordRepository;
 
-    /* TODO store data in DB */
-    private final List<DeliveryInfoRecordDto> deliveryLogsStub = new ArrayList<>();
+    private final List<StartDeliveryInfo> startDeliveryEvents = new ArrayList<>();
+
 
     @InjectEventLogger
     private EventLogger eventLogger;
@@ -69,9 +72,11 @@ public class DefaultDeliveryService implements DeliveryService {
     private final MetricCollector metricCollector;
 
     public DefaultDeliveryService(DeliveryTransactionsProcessorWritebackRepository writebackRepository,
+                                  DeliveryInfoRecordRepository deliveryInfoRecordRepository,
                                   ExternalDeliveryServiceCredentials externalDeliveryServiceCredentials,
                                   EventBus eventBus, MetricCollector metricCollector) {
         this.writebackRepository = writebackRepository;
+        this.deliveryInfoRecordRepository = deliveryInfoRecordRepository;
         this.eventBus = eventBus;
         this.metricCollector = metricCollector;
         metricCollector.register(DeliveryMetricEvent.values());
@@ -110,9 +115,36 @@ public class DefaultDeliveryService implements DeliveryService {
                 .build();
     }
 
+    private Long findOrAddStartDeliveryEventTime(StartDeliveryEvent event) {
+        for (StartDeliveryInfo startDeliveryInfo : startDeliveryEvents) {
+            if (startDeliveryInfo.getEvent().equals(event)) {
+                return startDeliveryInfo.getStartTime();
+            }
+        }
+        startDeliveryEvents.add(new StartDeliveryInfo(event, System.currentTimeMillis()));
+        return null;
+    }
+
+    private void findAndDeleteStartDeliveryEventTime(StartDeliveryEvent event) {
+        startDeliveryEvents.removeIf(startDeliveryInfo -> startDeliveryInfo.getEvent().equals(event));
+    }
+
+    private void retryStartDelivery(StartDeliveryEvent event, DeliveryTransactionsProcessorWriteback entry) {
+        Long eventStartedTime = findOrAddStartDeliveryEventTime(event);
+        if (eventStartedTime != null && (eventStartedTime + event.getTimeSlot() * 60000L) > System.currentTimeMillis()) {
+            handleStartDelivery(event);
+        } else {
+            eventBus.post(new DeliveryStatusFailedEvent(entry.getOrderId(),
+                    entry.getUserId(),
+                    entry.getTimeSlot()));
+            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+        }
+    }
+
     @Subscribe
     @Override
     public void handleStartDelivery(@NotNull StartDeliveryEvent event) {
+        Long startTime = findOrAddStartDeliveryEventTime(event);
         DeliveryTransactionsProcessorWriteback entry = new DeliveryTransactionsProcessorWriteback();
 
         entry.setOrderId(event.getOrderID());
@@ -139,10 +171,15 @@ public class DefaultDeliveryService implements DeliveryService {
                 transactionWrapper = syncTransactionProcessor.startTransaction(context);
             } catch (TransactionProcessingException e) {
                 // TODO collect metrics here
-                eventBus.post(new DeliveryStatusFailedEvent(entry.getOrderId(),
-                        entry.getUserId(),
-                        entry.getTimeSlot()));
                 metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+                if (startTime == null) {
+                    retryStartDelivery(event, entry);
+                } else {
+                    eventBus.post(new DeliveryStatusFailedEvent(entry.getOrderId(),
+                            entry.getUserId(),
+                            entry.getTimeSlot()));
+                    metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+                }
             }
             if (transactionWrapper != null) {
                 transactionCompletionProcessor(transactionWrapper, context);
@@ -152,7 +189,7 @@ public class DefaultDeliveryService implements DeliveryService {
 
     @Override
     public List<DeliveryInfoRecordDto> getDeliveryLog(UUID orderId) {
-        return deliveryLogsStub.stream().filter(it -> it.getOrderId().equals(orderId)).collect(Collectors.toList());
+        return deliveryInfoRecordRepository.findAllByOrderId(orderId);
     }
 
     @NotNull
@@ -173,13 +210,16 @@ public class DefaultDeliveryService implements DeliveryService {
     }
 
     private void transactionCompletionProcessor(TransactionWrapper<TransactionResponseDto, UUID> transaction, TransactionContext context) {
+        StartDeliveryEvent event = new StartDeliveryEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
+                context.deliveryTransactionsProcessorWriteback.getUserId(),
+                context.deliveryTransactionsProcessorWriteback.getTimeSlot());
+
         switch (transaction.getStatus()) {
             case SUCCESS:
                 /* TODO get rid of Long.valueOf().intValue() */
                 int duration = Long.valueOf(transaction.getWrappedObject().getCompletedTime() - transaction.getWrappedObject().getSubmitTime()).intValue();
 
-                /* TODO write to DB */
-                deliveryLogsStub.add(new DeliveryInfoRecordDto(
+                deliveryInfoRecordRepository.save(new DeliveryInfoRecordDto(
                         DeliveryInfoRecordDto.Outcome.SUCCESS,
                         transaction.getWrappedObject().getSubmitTime(),
                         1,
@@ -196,11 +236,11 @@ public class DefaultDeliveryService implements DeliveryService {
 
                 // TODO
                 metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
+                findAndDeleteStartDeliveryEventTime(event);
                 break;
             case FAILURE:
 
-                /* TODO write to DB */
-                deliveryLogsStub.add(new DeliveryInfoRecordDto(
+                deliveryInfoRecordRepository.save(new DeliveryInfoRecordDto(
                         DeliveryInfoRecordDto.Outcome.SUCCESS,
                         transaction.getWrappedObject().getSubmitTime(),
                         1,
@@ -209,13 +249,9 @@ public class DefaultDeliveryService implements DeliveryService {
                         transaction.getWrappedObject().getCompletedTime(),
                         context.deliveryTransactionsProcessorWriteback.getOrderId()));
 
-                eventBus.post(new DeliveryStatusFailedEvent(context.deliveryTransactionsProcessorWriteback.getOrderId(),
-                        context.deliveryTransactionsProcessorWriteback.getUserId(),
-                        context.deliveryTransactionsProcessorWriteback.getTimeSlot()));
-                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
-
                 // TODO
                 metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
+                retryStartDelivery(event, context.deliveryTransactionsProcessorWriteback);
                 break;
         }
     }
