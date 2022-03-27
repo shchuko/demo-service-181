@@ -5,6 +5,9 @@ databaseChangeLog:
   - include:
       file: migrations/v2/changelog-v2-cumulative.yaml
       relativeToChangelogFile: true
+  - include:
+      file: migrations/v3/changelog-v3-cumulative.yaml
+      relativeToChangelogFile: true
 #  - include:
 #      file: migrations/dev/changelog-dev-cumulative.yaml
 #      relativeToChangelogFile: true

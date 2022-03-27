@@ -1,26 +1,34 @@
 package com.itmo.microservices.shop.delivery.api.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import liquibase.pro.packaged.O;
+import lombok.*;
 
+import javax.persistence.Entity;
+import javax.persistence.Id;
 import java.util.UUID;
 
+@Entity
+@Getter
+@Setter
+@ToString
 public class DeliveryInfoRecordDto {
-    private final String outcome;
-    private final long preparedTime;
-    private final int attempts;
-    private final long submittedTime;
-    private final UUID transactionId;
-    private final long submissionStartedTime;
+
+    @Id
+    private UUID id;
+    private String outcome;
+    private long preparedTime;
+    private int attempts;
+    private long submittedTime;
+    private UUID transactionId;
+    private long submissionStartedTime;
 
 
     /* TODO remove */
     @JsonIgnore
-    private final UUID orderId;
+    private UUID orderId;
 
-    @JsonIgnore
-    public UUID getOrderId() {
-        return orderId;
+    public DeliveryInfoRecordDto() {
+
     }
 
     public enum Outcome {
@@ -39,30 +47,6 @@ public class DeliveryInfoRecordDto {
 
     public DeliveryInfoRecordDto(String outcome, long preparedTime, int attempts, long submittedTime, UUID transactionId, long submissionStartedTime, UUID orderId) {
         this(Outcome.valueOf(outcome), preparedTime, attempts, submittedTime, transactionId, submissionStartedTime, orderId);
-    }
-
-    public String getOutcome() {
-        return outcome;
-    }
-
-    public long getPreparedTime() {
-        return preparedTime;
-    }
-
-    public int getAttempts() {
-        return attempts;
-    }
-
-    public long getSubmittedTime() {
-        return submittedTime;
-    }
-
-    public UUID getTransactionId() {
-        return transactionId;
-    }
-
-    public long getSubmissionStartedTime() {
-        return submissionStartedTime;
     }
 
 }
