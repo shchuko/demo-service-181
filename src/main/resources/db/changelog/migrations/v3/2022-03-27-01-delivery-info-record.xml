@@ -17,19 +17,22 @@
       <column name="outcome" type="varchar(32)">
         <constraints nullable="false"/>
       </column>
-      <column name="preparedTime" type="bigint">
+      <column name="prepared_time" type="bigint">
         <constraints nullable="false"/>
       </column>
       <column name="attempts" type="int">
         <constraints nullable="false"/>
       </column>
-      <column name="submittedTime" type="bigint">
+      <column name="submitted_time" type="bigint">
         <constraints nullable="false"/>
       </column>
-      <column name="transactionId" type="uuid">
+      <column name="transaction_id" type="uuid">
         <constraints nullable="false"/>
       </column>
-      <column name="submissionStartedTime" type="bigint">
+      <column name="submission_started_time" type="bigint">
+        <constraints nullable="false"/>
+      </column>
+      <column name="order_id" type="uuid">
         <constraints nullable="false"/>
       </column>
     </createTable>
