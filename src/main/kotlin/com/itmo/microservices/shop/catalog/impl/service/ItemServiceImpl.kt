@@ -20,7 +20,6 @@ import com.itmo.microservices.shop.catalog.impl.mapper.mapToEntityWithNullId
 import com.itmo.microservices.shop.catalog.impl.metrics.CatalogMetricEvent
 import com.itmo.microservices.shop.catalog.impl.repository.*
 import com.itmo.microservices.shop.common.metrics.MetricCollector
-import com.itmo.microservices.shop.order.impl.metrics.OrderMetricEvent
 import org.springframework.beans.BeanUtils
 import org.springframework.stereotype.Service
 import java.lang.System.currentTimeMillis
@@ -40,8 +39,7 @@ class ItemServiceImpl(
     private val metricCollector: MetricCollector
 ) : ItemService {
     init {
-        val a = CatalogMetricEvent.values()
-        a.forEach { ev -> metricCollector.register(ev) }
+        metricCollector.register(CatalogMetricEvent.values())
     }
 
 
@@ -52,7 +50,8 @@ class ItemServiceImpl(
 
     override fun listItems(): MutableList<ItemDTO> =
         itemRepository.findAll().map { it.mapToDTO() }.toMutableList()
-            .also { logger.info(ItemServiceNotableEvents.I_GET_ITEMS_REQUEST, it.size);
+            .also {
+                logger.info(ItemServiceNotableEvents.I_GET_ITEMS_REQUEST, it.size)
                 metricCollector.passEvent(CatalogMetricEvent.CATALOG_SHOWN, 1.0)
             }
 
@@ -161,7 +160,7 @@ class ItemServiceImpl(
 
 
     override fun describeBooking(bookingId: UUID): BookingDescriptionDto {
-        val booking = getBookingOrThrow(bookingId);
+        val booking = getBookingOrThrow(bookingId)
         val records = booking.bookingLogRecords
             .map { Triple(it.itemId, it.amount, it.bookingLogRecordStatus.toEnum()) }
             .toList()
