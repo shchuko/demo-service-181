@@ -1,6 +1,5 @@
 package com.itmo.microservices.shop.catalog.impl.service
 
-import com.google.common.eventbus.EventBus
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger
 import com.itmo.microservices.commonlib.logging.EventLogger
 import com.itmo.microservices.shop.catalog.api.exceptions.BookingNotFoundException
@@ -18,13 +17,16 @@ import com.itmo.microservices.shop.catalog.impl.mapper.mapToBookingLogRecordDTO
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToDTO
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToEntity
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToEntityWithNullId
+import com.itmo.microservices.shop.catalog.impl.metrics.CatalogMetricEvent
 import com.itmo.microservices.shop.catalog.impl.repository.*
+import com.itmo.microservices.shop.common.metrics.MetricCollector
 import org.springframework.beans.BeanUtils
 import org.springframework.stereotype.Service
 import java.lang.System.currentTimeMillis
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+
 
 @Suppress("UnstableApiUsage")
 @Service
@@ -34,8 +36,12 @@ class ItemServiceImpl(
     private val bookingStatusRepository: BookingStatusRepository,
     private val bookingLogRecordRepository: BookingLogRecordRepository,
     private val bookingLogRecordStatusRepository: BookingLogRecordStatusRepository,
-    private val eventBus: EventBus
+    private val metricCollector: MetricCollector
 ) : ItemService {
+    init {
+        metricCollector.register(CatalogMetricEvent.values())
+    }
+
 
     @InjectEventLogger
     private lateinit var logger: EventLogger
@@ -44,7 +50,10 @@ class ItemServiceImpl(
 
     override fun listItems(): MutableList<ItemDTO> =
         itemRepository.findAll().map { it.mapToDTO() }.toMutableList()
-            .also { logger.info(ItemServiceNotableEvents.I_GET_ITEMS_REQUEST, it.size) }
+            .also {
+                logger.info(ItemServiceNotableEvents.I_GET_ITEMS_REQUEST, it.size)
+                metricCollector.passEvent(CatalogMetricEvent.CATALOG_SHOWN, 1.0)
+            }
 
     override fun listAvailableItems(): MutableList<ItemDTO> =
         itemRepository.findAllByAmountGreaterThan(0).map { it.mapToDTO() }.toMutableList()
@@ -151,7 +160,7 @@ class ItemServiceImpl(
 
 
     override fun describeBooking(bookingId: UUID): BookingDescriptionDto {
-        val booking = getBookingOrThrow(bookingId);
+        val booking = getBookingOrThrow(bookingId)
         val records = booking.bookingLogRecords
             .map { Triple(it.itemId, it.amount, it.bookingLogRecordStatus.toEnum()) }
             .toList()
@@ -241,11 +250,13 @@ class ItemServiceImpl(
 
             val itemEntity = maybeItemEntity.get()
             if (itemEntity.amount < amount) {
+                metricCollector.passEvent(CatalogMetricEvent.ITEM_BOOK_REQUESTED, 1.0, "FAILED")
                 return@withLock false
             }
 
             itemEntity.amount -= amount
             itemRepository.save(itemEntity)
+            metricCollector.passEvent(CatalogMetricEvent.ITEM_BOOK_REQUESTED, 1.0, "SUCCESS")
             return@withLock true
         }
     }

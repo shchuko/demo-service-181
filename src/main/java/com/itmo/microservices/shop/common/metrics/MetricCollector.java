@@ -123,7 +123,7 @@ public class MetricCollector extends CommonMetricsCollector {
         return meters.get(event.getName());
     }
 
-    public void register(MetricEvent... events) {
+    public void register(MetricEvent[] events) {
         for (var event : events) {
             SimpleCollector<?> collector;
             switch (event.getMetricType()) {
