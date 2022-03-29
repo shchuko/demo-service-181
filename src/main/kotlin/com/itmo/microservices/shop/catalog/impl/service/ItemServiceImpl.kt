@@ -17,7 +17,9 @@ import com.itmo.microservices.shop.catalog.impl.mapper.mapToBookingLogRecordDTO
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToDTO
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToEntity
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToEntityWithNullId
+import com.itmo.microservices.shop.catalog.impl.metrics.CatalogMetricEvent
 import com.itmo.microservices.shop.catalog.impl.repository.*
+import com.itmo.microservices.shop.common.metrics.MetricCollector
 import org.springframework.beans.BeanUtils
 import org.springframework.stereotype.Service
 import java.lang.System.currentTimeMillis
@@ -33,7 +35,11 @@ class ItemServiceImpl(
     private val bookingStatusRepository: BookingStatusRepository,
     private val bookingLogRecordRepository: BookingLogRecordRepository,
     private val bookingLogRecordStatusRepository: BookingLogRecordStatusRepository,
+    private val metricCollector: MetricCollector
 ) : ItemService {
+    init {
+        metricCollector.register(CatalogMetricEvent.values())
+    }
 
     @InjectEventLogger
     private lateinit var logger: EventLogger
