@@ -1,6 +1,5 @@
 package com.itmo.microservices.shop.catalog.impl.service
 
-import com.google.common.eventbus.EventBus
 import com.itmo.microservices.commonlib.annotations.InjectEventLogger
 import com.itmo.microservices.commonlib.logging.EventLogger
 import com.itmo.microservices.shop.catalog.api.exceptions.BookingNotFoundException
@@ -34,7 +33,6 @@ class ItemServiceImpl(
     private val bookingStatusRepository: BookingStatusRepository,
     private val bookingLogRecordRepository: BookingLogRecordRepository,
     private val bookingLogRecordStatusRepository: BookingLogRecordStatusRepository,
-    private val eventBus: EventBus
 ) : ItemService {
 
     @InjectEventLogger
