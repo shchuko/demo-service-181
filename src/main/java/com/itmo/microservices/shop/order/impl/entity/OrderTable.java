@@ -22,7 +22,6 @@ public class OrderTable {
   private Long timeCreated;
   private Long timeModified;
   private Integer deliveryDuration;
-  private Integer deliverySlot;
   private UUID userId;
   private UUID lastBookingId;
 
