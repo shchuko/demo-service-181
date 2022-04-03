@@ -92,11 +92,15 @@ public class OrderItemService implements IOrderService {
         this.metricCollector = metricCollector;
         metricCollector.register(OrderMetricEvent.values());
         itemDiscardProcessingExecutor.scheduleAtFixedRate(() -> {
-            for (OrderTable order : orderRepository.findAllByTimeModifiedLessThan(Instant.now().getEpochSecond() - DISCARD_TIMEOUT_SECONDS)) {
+            List<OrderTable> ordersToDiscard = orderRepository.findAllByTimeModifiedLessThan(Instant.now().getEpochSecond() - DISCARD_TIMEOUT_SECONDS);
+            metricCollector.passEvent(OrderMetricEvent.CURRENT_ABANDONED_ORDER_NUM, ordersToDiscard.size());
+            for (OrderTable order : ordersToDiscard) {
                 if (order.getStatus().getName().equals(IOrderStatusRepository.StatusNames.COLLECTING.name())) {
                     order.setStatus(statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.DISCARD.name()));
+                    order.setTimeModified(Instant.now().getEpochSecond());
                     orderRepository.save(order);
-                    metricCollector.passEvent(OrderMetricEvent.DISCARDED_ORDERS, 1, IOrderStatusRepository.StatusNames.DISCARD.name());
+                    metricCollector.passEvent(OrderMetricEvent.DISCARDED_ORDERS, 1);
+                    metricCollector.passEvent(OrderMetricEvent.CURRENT_ABANDONED_ORDER_NUM, -1);
                 }
             }
         }, 0, 5, TimeUnit.SECONDS);
@@ -157,6 +161,7 @@ public class OrderItemService implements IOrderService {
                 }
 
                 order.setStatus(statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name()));
+                order.setTimeModified(Instant.now().getEpochSecond());
                 itemService.cancelBooking(order.getLastBookingId());
                 orderRepository.save(order);
                 logInfo(OrderServiceNotableEvent.I_ORDER_UNBOOKED, orderId);
@@ -270,6 +275,7 @@ public class OrderItemService implements IOrderService {
             throw e;
         }
         order.setStatus(statusBooked);
+        order.setTimeModified(Instant.now().getEpochSecond());
         order.setLastBookingId(bookingResult.getBookingId());
         orderRepository.save(order);
 
@@ -322,6 +328,7 @@ public class OrderItemService implements IOrderService {
         /* BOOKED -> PAID */
         /* PAID -> REFUND */
         OrderTable order = getOrderOrThrow(event.getOrderId(), event.getUserId());
+        long start = order.getTimeModified();
 
         switch (FinancialOperationTypeRepository.VALUES.valueOf(event.getOperationType())) {
             case REFUND:
@@ -343,10 +350,15 @@ public class OrderItemService implements IOrderService {
                         -1,
                         IOrderStatusRepository.StatusNames.PAID.name()
                 );
+                metricCollector.passEvent(
+                        OrderMetricEvent.AVG_BOOKING_TO_PAYED_TIME,
+                        Instant.now().getEpochSecond() - start
+                );
                 break;
             case WITHDRAW:
                 OrderStatus statusPaid = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.PAID.name());
                 order.setStatus(statusPaid);
+                order.setTimeModified(Instant.now().getEpochSecond());
                 orderRepository.save(order);
                 metricCollector.passEvent(
                         OrderMetricEvent.ORDER_STATUS_CHANGED,
@@ -363,6 +375,10 @@ public class OrderItemService implements IOrderService {
                         OrderMetricEvent.ORDER_IN_STATUS,
                         -1,
                         IOrderStatusRepository.StatusNames.BOOKED.name()
+                );
+                metricCollector.passEvent(
+                        OrderMetricEvent.AVG_BOOKING_TO_PAYED_TIME,
+                        Instant.now().getEpochSecond() - start
                 );
                 itemService.completeBooking(order.getLastBookingId());
                 logInfo(OrderServiceNotableEvent.I_ORDER_SUCCESSFUL_PAYMENT, order.getId());
@@ -408,6 +424,7 @@ public class OrderItemService implements IOrderService {
         itemService.cancelBooking(order.getLastBookingId());
         OrderStatus statusCollecting = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
         order.setStatus(statusCollecting);
+        order.setTimeModified(Instant.now().getEpochSecond());
         orderRepository.save(order);
         metricCollector.passEvent(
                 OrderMetricEvent.ORDER_STATUS_CHANGED,
@@ -435,6 +452,7 @@ public class OrderItemService implements IOrderService {
         OrderTable order = deliveryEventCommonPreHandler(event);
         OrderStatus statusComplete = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COMPLETED.name());
         order.setStatus(statusComplete);
+        order.setTimeModified(Instant.now().getEpochSecond());
 //        order.setDeliveryDuration(event.getDeliveryDuration());
         orderRepository.save(order);
         logInfo(OrderServiceNotableEvent.I_ORDER_SUCCESSFUL_DELIVERY, event.getOrderId());
@@ -480,6 +498,7 @@ public class OrderItemService implements IOrderService {
         itemService.processRefund(order.getLastBookingId());
         OrderStatus statusRefund = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.REFUND.name());
         order.setStatus(statusRefund);
+        order.setTimeModified(Instant.now().getEpochSecond());
         orderRepository.save(order);
         logInfo(OrderServiceNotableEvent.I_REFUND_DONE, order.getId());
         metricCollector.passEvent(

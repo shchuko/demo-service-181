@@ -63,14 +63,18 @@ public enum OrderMetricEvent implements MetricEvent {
             Collections.emptyList(),
             "status"
     ),
-    // TODO: current_abandoned_order_num
     CURRENT_ABANDONED_ORDER_NUM(
             "current_abandoned_order_num",
             "Current number of abandoned order",
             MetricType.GAUGE,
             Collections.emptyList()
     ),
-
+    AVG_BOOKING_TO_PAYED_TIME(
+            "avg_booking_to_payed_time",
+            "Average duration before status changes to payed",
+            MetricType.SUMMARY,
+            List.of(0.9)
+    ),
     // summary
     FINALIZATION_DURATION(
             "finalization_duration",
