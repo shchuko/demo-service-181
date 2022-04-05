@@ -201,7 +201,7 @@ public class OrderItemService implements IOrderService {
         orderItem.setOrderId(orderId);
         orderItem.setPrice(item.getPrice());
         orderItem.setOrder(order);
-        orderItem.setAmount(amount);
+        orderItem.setAmount(orderItem.getAmount() + amount);
         orderItem.setItemId(itemId);
 
         orderItemRepository.save(orderItem);
