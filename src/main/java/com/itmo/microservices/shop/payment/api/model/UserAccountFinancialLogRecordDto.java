@@ -20,7 +20,7 @@ public class UserAccountFinancialLogRecordDto {
         this.timestamp = timestamp;
     }
 
-    public String getFinancialOperationType() {
+    public String getType() {
         return FinancialOperationType;
     }
 
