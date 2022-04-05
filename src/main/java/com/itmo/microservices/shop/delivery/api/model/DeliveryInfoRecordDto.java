@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import java.util.UUID;
 
@@ -14,6 +15,7 @@ import java.util.UUID;
 public class DeliveryInfoRecordDto {
 
     @Id
+    @GeneratedValue
     private UUID id;
     private String outcome;
     private long preparedTime;
