@@ -17,9 +17,10 @@ import com.itmo.microservices.shop.catalog.impl.mapper.mapToBookingLogRecordDTO
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToDTO
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToEntity
 import com.itmo.microservices.shop.catalog.impl.mapper.mapToEntityWithNullId
-import com.itmo.microservices.shop.catalog.impl.metrics.CatalogMetricEvent
 import com.itmo.microservices.shop.catalog.impl.repository.*
 import com.itmo.microservices.shop.common.metrics.MetricCollector
+import com.itmo.microservices.shop.common.metrics.MetricEvent
+import com.itmo.microservices.shop.common.metrics.MetricType
 import org.springframework.beans.BeanUtils
 import org.springframework.stereotype.Service
 import java.lang.System.currentTimeMillis
@@ -27,6 +28,34 @@ import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
+abstract class CatalogMetricEvent(
+    private val _name: String,
+    private val _desc: String,
+    private val _metric_type: MetricType,
+    private val _quantiles: MutableList<Double>,
+    private val _tags: Array<String> = arrayOf()
+) : MetricEvent {
+    object CATALOG_SHOWN : CatalogMetricEvent(
+        _name = "catalog_shown",
+        _desc = "Count of requests to show account",
+        _metric_type = MetricType.COUNTER,
+        _quantiles = mutableListOf()
+    )
+
+    object ITEM_BOOK_REQUESTED : CatalogMetricEvent(
+        _name = "item_booked",
+        _desc = "Count of requests to book an item",
+        _metric_type = MetricType.COUNTER,
+        _quantiles = mutableListOf(),
+        _tags = arrayOf("status")
+    )
+
+    override fun getName(): String = _name
+    override fun getDescription(): String = _desc
+    override fun getMetricType(): MetricType = _metric_type
+    override fun getTags(): Array<String> = _tags
+    override fun getQuantiles(): MutableList<Double> = _quantiles
+}
 
 @Suppress("UnstableApiUsage")
 @Service
@@ -39,9 +68,13 @@ class ItemServiceImpl(
     private val metricCollector: MetricCollector
 ) : ItemService {
     init {
-        metricCollector.register(CatalogMetricEvent.values())
+        metricCollector.register(
+            arrayOf(
+                CatalogMetricEvent.CATALOG_SHOWN,
+                CatalogMetricEvent.ITEM_BOOK_REQUESTED,
+            )
+        )
     }
-
 
     @InjectEventLogger
     private lateinit var logger: EventLogger
