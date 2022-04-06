@@ -34,7 +34,7 @@ public class OrderItem {
       updatable = false)
   private OrderTable order;
 
-  private Integer amount = 0;
+  private Integer amount;
 
   private Integer price;
 
