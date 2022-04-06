@@ -1,5 +1,6 @@
 package com.itmo.microservices.shop.payment.api.controller;
 
+import com.itmo.microservices.shop.payment.api.model.UserAccountFinancialLogRecordDto;
 import com.itmo.microservices.shop.payment.api.service.PaymentService;
 import com.itmo.microservices.shop.user.impl.userdetails.UserAuth;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -25,7 +27,7 @@ public class FinLogController {
 
     @GetMapping
     @Operation(security = {@SecurityRequirement(name = "bearerAuth")})
-    ResponseEntity<?> getUserFinancialLog(Authentication authentication, @RequestParam(defaultValue = "", required = false) UUID orderId) {
+    ResponseEntity<List<UserAccountFinancialLogRecordDto>> getUserFinancialLog(Authentication authentication, @RequestParam(defaultValue = "", required = false) UUID orderId) {
         var user = (UserAuth) authentication.getPrincipal();
         UUID userId = user.getUuid();
         try {
