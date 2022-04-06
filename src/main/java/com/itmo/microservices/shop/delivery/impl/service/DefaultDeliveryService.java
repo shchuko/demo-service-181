@@ -106,9 +106,12 @@ public class DefaultDeliveryService implements DeliveryService {
                     metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_EXECUTOR_ACTIVE_TASKS, -1, "deliveryPolling");
                     transactionCompletionProcessor(transaction, context);
                 })
-                .withExceptionHandler(HttpServerErrorException.InternalServerError.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "500", "false", "false"))
-                .withExceptionHandler(HttpClientErrorException.TooManyRequests.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "429", "false", "false"))
-                .withExceptionHandler(HttpClientErrorException.Unauthorized.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "401", "false", "false"))
+                .withIgnoringExceptionHandler(HttpServerErrorException.InternalServerError.class)
+                .withIgnoringExceptionHandler(HttpClientErrorException.TooManyRequests.class)
+                .withIgnoringExceptionHandler(HttpClientErrorException.Unauthorized.class)
+//                .withExceptionHandler(HttpServerErrorException.InternalServerError.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "500", "false", "false"))
+//                .withExceptionHandler(HttpClientErrorException.TooManyRequests.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "429", "false", "false"))
+//                .withExceptionHandler(HttpClientErrorException.Unauthorized.class, (Throwable e) -> metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "401", "false", "false"))
                 // External service issue, just retry on 404 until SUCCESS received
                 // See https://t.me/c/1436658303/1445
                 .withIgnoringExceptionHandler(HttpClientErrorException.NotFound.class)
@@ -137,7 +140,7 @@ public class DefaultDeliveryService implements DeliveryService {
             eventBus.post(new DeliveryStatusFailedEvent(entry.getOrderId(),
                     entry.getUserId(),
                     entry.getTimeSlot()));
-            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+//            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
         }
     }
 
@@ -154,31 +157,44 @@ public class DefaultDeliveryService implements DeliveryService {
         TransactionContext context = new TransactionContext(entry);
         TransactionWrapper<TransactionResponseDto, UUID> transactionWrapper = null;
 
-        metricCollector.passEvent(DeliveryMetricEvent.SHIPPING_ORDERS_TOTAL, 1);
+//        metricCollector.passEvent(DeliveryMetricEvent.SHIPPING_ORDERS_TOTAL, 1);
         try {
-            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, 1);
+//            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, 1);
             transactionWrapper = pollingTransactionProcessor.startTransaction(context);
-            metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1);
-        } catch (TransactionProcessingException ignored) {
+/*
+2022-04-06 02:43:06.673 ERROR 45632 --- [pool-1-thread-3] c.g.common.eventbus.EventBus.default     : Exception thrown by subscriber method handleStartDelivery(com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryEvent) on subscriber com.itmo.microservices.shop.delivery.impl.service.DefaultDeliveryService@4b1a7b39 when dispatching event: com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryEvent@1f5f923c
+
+java.lang.IllegalArgumentException: Incorrect number of labels.
+	at io.prometheus.client.SimpleCollector.labels(SimpleCollector.java:65)
+	at com.itmo.microservices.shop.common.metrics.MetricCollector.passEvent(MetricCollector.java:70)
+	at com.itmo.microservices.shop.delivery.impl.service.DefaultDeliveryService.handleStartDelivery(DefaultDeliveryService.java:161)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:64)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:564)
+
+ */
+//            metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1);
+        } catch (HttpServerErrorException | HttpClientErrorException | TransactionProcessingException ignored) {
             // TODO collect metrics here
-            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+//            metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
         }
 
         if (transactionWrapper == null) {
             try {
-                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, 1);
+//                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, 1);
 
                 transactionWrapper = syncTransactionProcessor.startTransaction(context);
-            } catch (TransactionProcessingException e) {
+            } catch (HttpServerErrorException | HttpClientErrorException | TransactionProcessingException e) {
                 // TODO collect metrics here
-                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+//                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
                 if (startTime == null) {
                     retryStartDelivery(event, entry);
                 } else {
                     eventBus.post(new DeliveryStatusFailedEvent(entry.getOrderId(),
                             entry.getUserId(),
                             entry.getTimeSlot()));
-                    metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+//                    metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
                 }
             }
             if (transactionWrapper != null) {
@@ -218,12 +234,12 @@ public class DefaultDeliveryService implements DeliveryService {
             case SUCCESS:
                 /* TODO get rid of Long.valueOf().intValue() */
                 int duration = Long.valueOf(transaction.getWrappedObject().getCompletedTime() - transaction.getWrappedObject().getSubmitTime()).intValue();
-
+                System.out.println("Adding log record success");
                 deliveryInfoRecordRepository.save(new DeliveryInfoRecordDto(
                         DeliveryInfoRecordDto.Outcome.SUCCESS,
                         transaction.getWrappedObject().getSubmitTime(),
                         1,
-                        transaction.getWrappedObject().getCompletedTime(),
+                        transaction.getWrappedObject().getSubmitTime(),
                         transaction.getId(),
                         transaction.getWrappedObject().getCompletedTime(),
                         context.deliveryTransactionsProcessorWriteback.getOrderId()));
@@ -232,25 +248,25 @@ public class DefaultDeliveryService implements DeliveryService {
                         context.deliveryTransactionsProcessorWriteback.getUserId(),
                         context.deliveryTransactionsProcessorWriteback.getTimeSlot(),
                         duration));
-                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+//                metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
 
                 // TODO
-                metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
+//                metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
                 findAndDeleteStartDeliveryEventTime(event);
                 break;
             case FAILURE:
-
+                System.out.println("Adding log record failure");
                 deliveryInfoRecordRepository.save(new DeliveryInfoRecordDto(
-                        DeliveryInfoRecordDto.Outcome.SUCCESS,
+                        DeliveryInfoRecordDto.Outcome.FAILURE,
                         transaction.getWrappedObject().getSubmitTime(),
                         1,
-                        transaction.getWrappedObject().getCompletedTime(),
+                        transaction.getWrappedObject().getSubmitTime(),
                         transaction.getId(),
                         transaction.getWrappedObject().getCompletedTime(),
                         context.deliveryTransactionsProcessorWriteback.getOrderId()));
 
                 // TODO
-                metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
+//                metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
                 retryStartDelivery(event, context.deliveryTransactionsProcessorWriteback);
                 break;
         }
