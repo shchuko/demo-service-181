@@ -50,7 +50,6 @@ import java.util.stream.Collectors;
 @Service
 @SuppressWarnings("UnstableApiUsage")
 public class OrderItemService implements IOrderService {
-    // TODO: add private method for changing order status and (logging + metrics)
 
     private static final long DISCARD_TIMEOUT_SECONDS = 60 * 60; // 60 minutes to collect
     private static final long BOOKING_TIMEOUT_MILLIS = 1000 * 60 * 5; // 5 minutes to pay for the order
@@ -160,27 +159,14 @@ public class OrderItemService implements IOrderService {
                     throw new BadOperationForCurrentOrderStatus("'AddItem' cannot be performed because of payment processing", orderId);
                 }
 
-                order.setStatus(statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name()));
-                order.setTimeModified(Instant.now().getEpochSecond());
+                OrderStatus collectedStatus = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
                 itemService.cancelBooking(order.getLastBookingId());
+
+                // dont change status by changeOrderStatusAndSave it will call duplicated metrics
+                order.setStatus(collectedStatus);
+                order.setTimeModified(Instant.now().getEpochSecond());
                 orderRepository.save(order);
                 logInfo(OrderServiceNotableEvent.I_ORDER_UNBOOKED, orderId);
-                metricCollector.passEvent(
-                        OrderMetricEvent.ORDER_STATUS_CHANGED,
-                        1,
-                        IOrderStatusRepository.StatusNames.BOOKED.name(),
-                        IOrderStatusRepository.StatusNames.COLLECTING.name()
-                        );
-                metricCollector.passEvent(
-                        OrderMetricEvent.ORDER_IN_STATUS,
-                        1,
-                        IOrderStatusRepository.StatusNames.COLLECTING.name()
-                );
-                metricCollector.passEvent(
-                        OrderMetricEvent.ORDER_IN_STATUS,
-                        -1,
-                        IOrderStatusRepository.StatusNames.BOOKED.name()
-                );
                 break;
 
             default:
@@ -274,27 +260,9 @@ public class OrderItemService implements IOrderService {
             );
             throw e;
         }
-        order.setStatus(statusBooked);
-        order.setTimeModified(Instant.now().getEpochSecond());
-        order.setLastBookingId(bookingResult.getBookingId());
-        orderRepository.save(order);
 
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_IN_STATUS,
-                -1,
-                IOrderStatusRepository.StatusNames.COLLECTING.name()
-        );
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_IN_STATUS,
-                1,
-                IOrderStatusRepository.StatusNames.BOOKED.name()
-        );
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_STATUS_CHANGED,
-                1,
-                IOrderStatusRepository.StatusNames.COLLECTING.name(),
-                IOrderStatusRepository.StatusNames.BOOKED.name()
-        );
+        order.setLastBookingId(bookingResult.getBookingId());
+        changeOrderStatusAndSave(order, statusBooked);
         logInfo(OrderServiceNotableEvent.I_ORDER_FINALIZED, orderId);
 
         try {
@@ -334,7 +302,7 @@ public class OrderItemService implements IOrderService {
             case REFUND:
 //                TODO uncomment, now we calling onRefundComplete triggerRefund
 //                onRefundComplete(order);
-                metricCollector.passEvent(
+                /*metricCollector.passEvent(
                         OrderMetricEvent.ORDER_STATUS_CHANGED,
                         1,
                         IOrderStatusRepository.StatusNames.PAID.name(),
@@ -353,29 +321,11 @@ public class OrderItemService implements IOrderService {
                 metricCollector.passEvent(
                         OrderMetricEvent.AVG_BOOKING_TO_PAYED_TIME,
                         Instant.now().getEpochSecond() - start
-                );
+                );*/
                 break;
             case WITHDRAW:
                 OrderStatus statusPaid = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.PAID.name());
-                order.setStatus(statusPaid);
-                order.setTimeModified(Instant.now().getEpochSecond());
-                orderRepository.save(order);
-                metricCollector.passEvent(
-                        OrderMetricEvent.ORDER_STATUS_CHANGED,
-                        1,
-                        IOrderStatusRepository.StatusNames.BOOKED.name(),
-                        IOrderStatusRepository.StatusNames.PAID.name()
-                );
-                metricCollector.passEvent(
-                        OrderMetricEvent.ORDER_IN_STATUS,
-                        1,
-                        IOrderStatusRepository.StatusNames.PAID.name()
-                );
-                metricCollector.passEvent(
-                        OrderMetricEvent.ORDER_IN_STATUS,
-                        -1,
-                        IOrderStatusRepository.StatusNames.BOOKED.name()
-                );
+                changeOrderStatusAndSave(order, statusPaid);
                 metricCollector.passEvent(
                         OrderMetricEvent.AVG_BOOKING_TO_PAYED_TIME,
                         Instant.now().getEpochSecond() - start
@@ -423,25 +373,7 @@ public class OrderItemService implements IOrderService {
 
         itemService.cancelBooking(order.getLastBookingId());
         OrderStatus statusCollecting = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COLLECTING.name());
-        order.setStatus(statusCollecting);
-        order.setTimeModified(Instant.now().getEpochSecond());
-        orderRepository.save(order);
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_STATUS_CHANGED,
-                1,
-                IOrderStatusRepository.StatusNames.BOOKED.name(),
-                IOrderStatusRepository.StatusNames.COLLECTING.name()
-        );
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_IN_STATUS,
-                1,
-                IOrderStatusRepository.StatusNames.COLLECTING.name()
-        );
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_IN_STATUS,
-                -1,
-                IOrderStatusRepository.StatusNames.BOOKED.name()
-        );
+        changeOrderStatusAndSave(order, statusCollecting);
         logInfo(OrderServiceNotableEvent.I_ORDER_CANCELLED_PAYMENT, order.getId());
     }
 
@@ -451,27 +383,8 @@ public class OrderItemService implements IOrderService {
         /* PAID -> COMPLETED */
         OrderTable order = deliveryEventCommonPreHandler(event);
         OrderStatus statusComplete = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.COMPLETED.name());
-        order.setStatus(statusComplete);
-        order.setTimeModified(Instant.now().getEpochSecond());
-//        order.setDeliveryDuration(event.getDeliveryDuration());
-        orderRepository.save(order);
+        changeOrderStatusAndSave(order, statusComplete);
         logInfo(OrderServiceNotableEvent.I_ORDER_SUCCESSFUL_DELIVERY, event.getOrderId());
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_STATUS_CHANGED,
-                1,
-                IOrderStatusRepository.StatusNames.PAID.name(),
-                IOrderStatusRepository.StatusNames.COMPLETED.name()
-        );
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_IN_STATUS,
-                1,
-                IOrderStatusRepository.StatusNames.COMPLETED.name()
-        );
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_IN_STATUS,
-                -1,
-                IOrderStatusRepository.StatusNames.PAID.name()
-        );
     }
 
     @Subscribe
@@ -494,29 +407,10 @@ public class OrderItemService implements IOrderService {
 
     private void onRefundComplete(OrderTable order) {
         /* <ANY> -> REFUND */
-        OrderStatus currentStatus = order.getStatus();
-        itemService.processRefund(order.getLastBookingId());
         OrderStatus statusRefund = statusRepository.findOrderStatusByName(IOrderStatusRepository.StatusNames.REFUND.name());
-        order.setStatus(statusRefund);
-        order.setTimeModified(Instant.now().getEpochSecond());
-        orderRepository.save(order);
+        changeOrderStatusAndSave(order, statusRefund);
+        itemService.processRefund(order.getLastBookingId());
         logInfo(OrderServiceNotableEvent.I_REFUND_DONE, order.getId());
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_STATUS_CHANGED,
-                1,
-                currentStatus.getName(),
-                IOrderStatusRepository.StatusNames.REFUND.name()
-        );
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_IN_STATUS,
-                1,
-                IOrderStatusRepository.StatusNames.REFUND.name()
-        );
-        metricCollector.passEvent(
-                OrderMetricEvent.ORDER_IN_STATUS,
-                -1,
-                currentStatus.getName()
-        );
     }
 
     private OrderTable deliveryEventCommonPreHandler(DeliveryStatusEvent event) {
@@ -557,5 +451,29 @@ public class OrderItemService implements IOrderService {
         if (eventLogger != null) {
             eventLogger.error(event, argv);
         }
+    }
+
+    private void changeOrderStatusAndSave(OrderTable order, OrderStatus targetStatus) {
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(targetStatus);
+        order.setTimeModified(Instant.now().getEpochSecond());
+        orderRepository.save(order);
+
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_STATUS_CHANGED,
+                1,
+                oldStatus.getName(), // from
+                targetStatus.getName() // to
+        );
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_IN_STATUS,
+                1,
+                targetStatus.getName()
+        );
+        metricCollector.passEvent(
+                OrderMetricEvent.ORDER_IN_STATUS,
+                -1,
+                oldStatus.getName()
+        );
     }
 }
