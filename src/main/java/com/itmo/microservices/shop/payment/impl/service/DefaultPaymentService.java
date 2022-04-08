@@ -12,6 +12,7 @@ import com.itmo.microservices.shop.common.executors.timeout.TimeoutProvider;
 import com.itmo.microservices.shop.common.externalservice.ExternalServiceClient;
 import com.itmo.microservices.shop.common.externalservice.api.TransactionResponseDto;
 import com.itmo.microservices.shop.common.limiters.RateLimiter;
+import com.itmo.microservices.shop.common.metrics.MetricCollector;
 import com.itmo.microservices.shop.common.transactions.TransactionPollingProcessor;
 import com.itmo.microservices.shop.common.transactions.TransactionSyncProcessor;
 import com.itmo.microservices.shop.common.transactions.TransactionWrapper;
@@ -28,9 +29,13 @@ import com.itmo.microservices.shop.payment.impl.config.ExternalPaymentServiceCre
 import com.itmo.microservices.shop.payment.impl.entity.PaymentLogRecord;
 import com.itmo.microservices.shop.payment.impl.entity.PaymentStatus;
 import com.itmo.microservices.shop.payment.impl.entity.PaymentTransactionsProcessorWriteback;
-import com.itmo.microservices.shop.payment.impl.exceptions.*;
+import com.itmo.microservices.shop.payment.impl.exceptions.PaymentAlreadyExistsException;
+import com.itmo.microservices.shop.payment.impl.exceptions.PaymentFailedException;
+import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInUninterruptibleProcessing;
+import com.itmo.microservices.shop.payment.impl.exceptions.PaymentInfoNotFoundException;
 import com.itmo.microservices.shop.payment.impl.logging.PaymentServiceNotableEvent;
 import com.itmo.microservices.shop.payment.impl.mapper.Mappers;
+import com.itmo.microservices.shop.payment.impl.metrics.PaymentMetricEvent;
 import com.itmo.microservices.shop.payment.impl.repository.FinancialOperationTypeRepository;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentLogRecordRepository;
 import com.itmo.microservices.shop.payment.impl.repository.PaymentStatusRepository;
@@ -48,7 +53,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings("UnstableApiUsage")
 @Service
 public class DefaultPaymentService implements PaymentService {
-    private static final long POLLING_RETRY_INTERVAL_MILLIS = 500;
+    private static final long POLLING_RETRY_INTERVAL_MILLIS = 1000;
     private static final int RETRYING_EXECUTOR_POOL_SIZE = 5;
     private static final int PAYMENT_SUBMISSION_EXECUTOR_POOL_SIZE = 5;
 
@@ -69,6 +74,7 @@ public class DefaultPaymentService implements PaymentService {
 
     @InjectEventLogger
     private EventLogger eventLogger;
+    private final MetricCollector metricCollector;
 
     private final EventBus eventBus;
 
@@ -197,11 +203,13 @@ public class DefaultPaymentService implements PaymentService {
                                  PaymentStatusRepository paymentStatusRepository,
                                  ExternalPaymentServiceCredentials externalPaymentServiceCredentials,
                                  PaymentTransactionsProcessorWritebackRepository paymentTransactionsProcessorWritebackRepository,
-                                 EventBus eventBus) {
+                                 MetricCollector metricCollector, EventBus eventBus) {
         this.paymentLogRecordRepo = paymentLogRecordRepo;
         this.financialOperationTypeRepository = financialOperationTypeRepository;
         this.paymentStatusRepository = paymentStatusRepository;
         this.paymentTransactionsProcessorWritebackRepository = paymentTransactionsProcessorWritebackRepository;
+        this.metricCollector = metricCollector;
+        metricCollector.register(PaymentMetricEvent.values());
         this.eventBus = eventBus;
 
         pollingClient = new ExternalServiceClient(externalPaymentServiceCredentials.getUrl(), externalPaymentServiceCredentials.getPollingSecret());
@@ -217,15 +225,20 @@ public class DefaultPaymentService implements PaymentService {
                 .withTransactionStartLimiter(new RateLimiter(externalPaymentServiceCredentials.getRateLimit(), TimeUnit.MINUTES))
                 .withTransactionStarter((Object... ignored) -> {
                     try {
+                        metricCollector.passEvent(PaymentMetricEvent.PAYMENT_EXTERNAL_EXECUTOR_ACTIVE_TASKS, 1, "paymentPolling");
                         return pollingClient.post().toTransactionWrapper();
                     } catch (HttpServerErrorException | HttpClientErrorException e) {
                         throw new TransactionStartException(e);
                     }
                 }).withTransactionUpdater((UUID transactionId) -> pollingClient.get(transactionId).toTransactionWrapper())
-                .withTransactionFinishHandler(this::transactionCompletionProcessor)
+                .withTransactionFinishHandler((transaction, context) -> {
+                    metricCollector.passEvent(PaymentMetricEvent.PAYMENT_EXTERNAL_EXECUTOR_ACTIVE_TASKS, -1, "paymentPolling");
+                    transactionCompletionProcessor(transaction, context);
+                })
                 // External service issue, just retry on 404 until SUCCESS received
                 // See https://t.me/c/1436658303/1445
                 // TODO validate that fixed and remove
+
                 .withIgnoringExceptionHandler(HttpClientErrorException.NotFound.class).build();
     }
 
@@ -237,27 +250,29 @@ public class DefaultPaymentService implements PaymentService {
         TransactionWrapper<TransactionResponseDto, UUID> transactionWrapper = null;
         try {
             transactionWrapper = pollingTransactionProcessor.startTransaction(context);
+            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "200", "false", "Pooling", String.valueOf(userId));
         } catch (TransactionProcessingException ignored) {
-            /* TODO collect metrics here */
+            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "Pooling", String.valueOf(userId));
             /* TODO eventBus: post */
         }
 
         if (transactionWrapper == null) {
             /* On error retry using synchronous call */
+            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "408", "true", "Pooling", String.valueOf(userId));
             try {
                 transactionWrapper = syncTransactionProcessor.startTransaction(context);
+                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "200", "false", "Sync", String.valueOf(userId));
             } catch (TransactionProcessingException e) {
+                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "Sync", String.valueOf(userId));
                 synchronized (submittedPayments) {
+
                     var value = submittedPayments.getOrDefault(new SubmittedPaymentKey(userId, orderId), null);
                     assert (value != null);
-                    if (value != null) {
-                        value.setNowProcessing(false);
-                    }
+                    value.setNowProcessing(false);
                 }
 
-                /* TODO collect metrics here */
                 /* TODO eventBus: post */
-
+                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "All", String.valueOf(userId));
                 throw new PaymentFailedException("Payment failed because of external service error");
             }
             transactionCompletionProcessor(transactionWrapper, context);
@@ -285,7 +300,20 @@ public class DefaultPaymentService implements PaymentService {
                     var removed = submittedPayments.remove(new SubmittedPaymentKey(userId, orderId));
                     assert (removed != null);
                 }
+
+                switch (FinancialOperationTypeRepository.VALUES.valueOf(opTypeName)) {
+                    case WITHDRAW:
+                        this.metricCollector.passEvent(PaymentMetricEvent.REVENUE, amount);
+                        break;
+
+                    case REFUND:
+                        this.metricCollector.passEvent(PaymentMetricEvent.REVENUE, -amount);
+                        this.metricCollector.passEvent(PaymentMetricEvent.REFUNDED_MONEY_AMOUNT, amount, PaymentMetricEvent.FAILED_TYPE.DELIVERY_FAILED.getTitle());
+                        break;
+                }
+
                 break;
+
             case FAILURE:
                 event = new PaymentFailedEvent(orderId, userId, opTypeName);
                 status = paymentStatusRepository.findByName(PaymentStatusRepository.VALUES.FAILED.name());
@@ -299,6 +327,7 @@ public class DefaultPaymentService implements PaymentService {
                 throw new IllegalStateException("Should not be reached");
         }
 
+        this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_SYSTEM_EXPENSE, amount, "PAYMENT");
         var paymentLogRecord = new PaymentLogRecord(amount, completedTime, orderId, transactionId, userId, status, opType);
         paymentLogRecordRepo.save(paymentLogRecord);
 
