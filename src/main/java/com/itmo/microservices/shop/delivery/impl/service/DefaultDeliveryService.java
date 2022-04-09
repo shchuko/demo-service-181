@@ -23,7 +23,6 @@ import com.itmo.microservices.shop.common.transactions.functional.TransactionPro
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusFailedEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.DeliveryStatusSuccessEvent;
 import com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryEvent;
-import com.itmo.microservices.shop.delivery.api.messaging.StartDeliveryInfo;
 import com.itmo.microservices.shop.delivery.api.model.DeliveryInfoRecordDto;
 import com.itmo.microservices.shop.delivery.api.service.DeliveryService;
 import com.itmo.microservices.shop.delivery.impl.config.ExternalDeliveryServiceCredentials;
@@ -36,10 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -62,7 +58,7 @@ public class DefaultDeliveryService implements DeliveryService {
     private final DeliveryTransactionsProcessorWritebackRepository writebackRepository;
     private final DeliveryInfoRecordRepository deliveryInfoRecordRepository;
 
-    private final List<StartDeliveryInfo> startDeliveryEvents = new ArrayList<>();
+    private final HashMap<UUID, Long> startDeliveryEvents = new HashMap<>();
 
 
     @InjectEventLogger
@@ -119,28 +115,27 @@ public class DefaultDeliveryService implements DeliveryService {
     }
 
     private Long findOrAddStartDeliveryEventTime(StartDeliveryEvent event) {
-        for (StartDeliveryInfo startDeliveryInfo : startDeliveryEvents) {
-            if (startDeliveryInfo.getEvent().equals(event)) {
-                return startDeliveryInfo.getStartTime();
-            }
+        Long startTime = startDeliveryEvents.get(event.getOrderID());
+        if (startTime == null) {
+            startDeliveryEvents.put(event.getOrderID(), System.currentTimeMillis());
         }
-        startDeliveryEvents.add(new StartDeliveryInfo(event, System.currentTimeMillis()));
-        return null;
+        return startTime;
     }
 
     private void findAndDeleteStartDeliveryEventTime(StartDeliveryEvent event) {
-        startDeliveryEvents.removeIf(startDeliveryInfo -> startDeliveryInfo.getEvent().equals(event));
+        startDeliveryEvents.remove(event.getOrderID());
     }
 
     private void retryStartDelivery(StartDeliveryEvent event, DeliveryTransactionsProcessorWriteback entry) {
         Long eventStartedTime = findOrAddStartDeliveryEventTime(event);
-        if (eventStartedTime != null && (eventStartedTime + event.getTimeSlot() * 60000L) > System.currentTimeMillis()) {
+        if (eventStartedTime != null && (eventStartedTime + event.getTimeSlot() * 1000L) > System.currentTimeMillis()) {
             handleStartDelivery(event);
         } else {
             eventBus.post(new DeliveryStatusFailedEvent(entry.getOrderId(),
                     entry.getUserId(),
                     entry.getTimeSlot()));
             metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+            findAndDeleteStartDeliveryEventTime(event);
         }
     }
 
