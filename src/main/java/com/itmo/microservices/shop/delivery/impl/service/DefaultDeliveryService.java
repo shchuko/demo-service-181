@@ -181,6 +181,7 @@ public class DefaultDeliveryService implements DeliveryService {
                             entry.getUserId(),
                             entry.getTimeSlot()));
                     metricCollector.passEvent(DeliveryMetricEvent.CURRENT_SHIPPING_ORDERS, -1);
+                    findAndDeleteStartDeliveryEventTime(event);
                 }
             }
             if (transactionWrapper != null) {
@@ -241,6 +242,7 @@ public class DefaultDeliveryService implements DeliveryService {
                 break;
             case FAILURE:
                 System.out.println("Adding log record failure");
+                metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
                 deliveryInfoRecordRepository.save(new DeliveryInfoRecordDto(
                         DeliveryInfoRecordDto.Outcome.FAILURE,
                         transaction.getWrappedObject().getSubmitTime(),
@@ -249,8 +251,6 @@ public class DefaultDeliveryService implements DeliveryService {
                         transaction.getId(),
                         transaction.getWrappedObject().getCompletedTime(),
                         context.deliveryTransactionsProcessorWriteback.getOrderId()));
-
-                metricCollector.passEvent(DeliveryMetricEvent.DELIVERY_EXTERNAL_REQUESTS, 1, "200", "false", "false");
                 retryStartDelivery(event, context.deliveryTransactionsProcessorWriteback);
                 break;
         }
