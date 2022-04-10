@@ -250,20 +250,20 @@ public class DefaultPaymentService implements PaymentService {
         TransactionWrapper<TransactionResponseDto, UUID> transactionWrapper = null;
         try {
             transactionWrapper = pollingTransactionProcessor.startTransaction(context);
-            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "200", "false", "Pooling", String.valueOf(userId));
+            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "200", "false", "Pooling", "1");
         } catch (TransactionProcessingException ignored) {
-            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "Pooling", String.valueOf(userId));
+            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "Pooling", "1");
             /* TODO eventBus: post */
         }
 
         if (transactionWrapper == null) {
             /* On error retry using synchronous call */
-            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "408", "true", "Pooling", String.valueOf(userId));
+            this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "408", "true", "Pooling", "1");
             try {
                 transactionWrapper = syncTransactionProcessor.startTransaction(context);
-                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "200", "false", "Sync", String.valueOf(userId));
+                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "200", "false", "Sync", "1");
             } catch (TransactionProcessingException e) {
-                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "Sync", String.valueOf(userId));
+                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "Sync", "1");
                 synchronized (submittedPayments) {
 
                     var value = submittedPayments.getOrDefault(new SubmittedPaymentKey(userId, orderId), null);
@@ -272,7 +272,7 @@ public class DefaultPaymentService implements PaymentService {
                 }
 
                 /* TODO eventBus: post */
-                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "All", String.valueOf(userId));
+                this.metricCollector.passEvent(PaymentMetricEvent.EXTERNAL_PAYMENT_REQUEST, 1, "500", "false", "All", "1");
                 throw new PaymentFailedException("Payment failed because of external service error");
             }
             transactionCompletionProcessor(transactionWrapper, context);
@@ -307,7 +307,6 @@ public class DefaultPaymentService implements PaymentService {
                         break;
 
                     case REFUND:
-                        this.metricCollector.passEvent(PaymentMetricEvent.REVENUE, -amount);
                         this.metricCollector.passEvent(PaymentMetricEvent.REFUNDED_MONEY_AMOUNT, amount, PaymentMetricEvent.FAILED_TYPE.DELIVERY_FAILED.getTitle());
                         break;
                 }
