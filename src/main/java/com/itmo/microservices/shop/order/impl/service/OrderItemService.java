@@ -266,9 +266,12 @@ public class OrderItemService implements IOrderService {
         logInfo(OrderServiceNotableEvent.I_ORDER_FINALIZED, orderId);
 
         try {
-            /* TODO retrieve adekvatny amount from item service while booking */
-            var amount = 42;
-            paymentService.submitPayment(userId, orderId, amount, BOOKING_TIMEOUT_MILLIS);
+            int orderAmount = order.getOrderItems()
+                    .stream()
+                    .map(orderItem -> orderItem.getAmount() * orderItem.getPrice())
+                    .mapToInt(Integer::intValue)
+                    .sum();
+            paymentService.submitPayment(userId, orderId, orderAmount, BOOKING_TIMEOUT_MILLIS);
             logInfo(OrderServiceNotableEvent.I_ORDER_SUBMIT_PAYMENT, orderId);
         } catch (PaymentAlreadyExistsException e) {
             logError(OrderServiceNotableEvent.E_ORDER_SUBMIT_PAYMENT, orderId);
