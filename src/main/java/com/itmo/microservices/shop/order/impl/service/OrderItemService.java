@@ -271,7 +271,10 @@ public class OrderItemService implements IOrderService {
                     .map(orderItem -> orderItem.getAmount() * orderItem.getPrice())
                     .mapToInt(Integer::intValue)
                     .sum();
-            paymentService.submitPayment(userId, orderId, orderAmount, BOOKING_TIMEOUT_MILLIS);
+            order.setAmount(orderAmount);
+            orderRepository.save(order);
+
+            paymentService.submitPayment(userId, orderId, order.getAmount(), BOOKING_TIMEOUT_MILLIS);
             logInfo(OrderServiceNotableEvent.I_ORDER_SUBMIT_PAYMENT, orderId);
         } catch (PaymentAlreadyExistsException e) {
             logError(OrderServiceNotableEvent.E_ORDER_SUBMIT_PAYMENT, orderId);
@@ -399,9 +402,7 @@ public class OrderItemService implements IOrderService {
     }
 
     private void triggerRefund(OrderTable order) {
-        /* TODO retrieve adekvatny amount from item service while booking */
-        var amount = 42;
-        eventBus.post(new RefundRequestEvent(order.getId(), order.getUserId(), amount));
+        eventBus.post(new RefundRequestEvent(order.getId(), order.getUserId(), order.getAmount()));
         logInfo(OrderServiceNotableEvent.I_REFUND_STARTED, order.getId());
 
         /* TODO remove onRefundComplete, it should be called on transaction finish! */
