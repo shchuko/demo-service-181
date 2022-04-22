@@ -2,3 +2,6 @@ databaseChangeLog:
   - include:
       file: 2022-03-27-01-delivery-info-record.xml
       relativeToChangelogFile: true
+  - include:
+      file: 2022-22-04-insert-order-amount-column.xml
+      relativeToChangelogFile: true
